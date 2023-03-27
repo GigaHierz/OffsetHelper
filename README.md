@@ -12,13 +12,14 @@ With the OffsetHelper contract, the user only needs to interact with the OffsetH
 
 ## Deployments
 
-For current deployments, see the `./deployments` folder.
+For current deployments and ABIs, see the [`./deployments`](./deployments/) folder.
+Find all other Toucan contract addresses check [here](https://app.toucan.earth/contracts)
 
 ## OffsetHelper
 
 The `OffsetHelper` contract implements helper functions that simplify the carbon offsetting (retirement) process.
 
-See [./docs/OffsetHelper.md](./docs/OffsetHelper.md) for detailed documentation.
+See [`./docs/OffsetHelper.md`](./docs/OffsetHelper.md) for detailed documentation.
 
 ### Development
 
@@ -29,8 +30,8 @@ See [./docs/OffsetHelper.md](./docs/OffsetHelper.md) for detailed documentation.
    yarn
    ```
 2. Copy `.env.example` to `.env` and modify values of the required environment variables:
-   1. `POLYGON_URL`/`MUMBAI_URL` to specify custom RPC endpoints for Polygon Mainnet, respectively, the Mumbai Testnet.
-   2. `PRIVATE_KEY` and `POLYGONSCAN_KEY` in order to deploy contract and publish source code on [polygonscan](https://polygonscan.com).
+   1. `RPC_ENDPOINT` to specify custom RPC endpoints for Polygon Mainnet, respectively, the Mumbai Testnet.
+   2. `PRIVATE_KEY` and `BLOCK_EXPLORER_API_KEY` in order to deploy contract and publish source code on [polygonscan](https://polygonscan.com). If you are developing make sure that you are using a special wallet only for development purposes that doesn't contain real life funds.
 
 ## Commands
 
