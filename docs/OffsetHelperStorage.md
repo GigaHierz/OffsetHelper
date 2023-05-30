@@ -14,15 +14,27 @@ mapping(string => address) eligibleTokenAddresses
 address contractRegistryAddress
 ```
 
-### sushiRouterAddress
+### dexRouterAddress
 
 ```solidity
-address sushiRouterAddress
+address dexRouterAddress
 ```
 
 ### balances
 
 ```solidity
 mapping(address => mapping(address => uint256)) balances
+```
+
+### baseToken
+
+```solidity
+string baseToken
+```
+
+### baseERC20
+
+```solidity
+string baseERC20
 ```
 

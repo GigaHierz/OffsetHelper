@@ -17,9 +17,9 @@ implemented in `OffsetHelper` to allow a retirement within one transaction:
 - `autoOffsetPoolToken()` if the user already owns a Toucan pool
   token such as BCT or NCT,
 - `autoOffsetExactOutETH()` if the user would like to perform a retirement
-  using MATIC, specifying the exact amount of TCO2s to retire,
+  using the native token e.g. CELO, specifying the exact amount of TCO2s to retire,
 - `autoOffsetExactInETH()` if the user would like to perform a retirement
-  using MATIC, swapping all sent MATIC into TCO2s,
+  using the native token e.g. CELO, swapping all sent CELO into TCO2s,
 - `autoOffsetExactOutToken()` if the user would like to perform a retirement
   using an ERC20 token (USDC, WETH or WMATIC), specifying the exact amount
   of TCO2s to retire,
@@ -36,7 +36,7 @@ user receives 1 TCO2 token for each pool token (BCT/NCT) redeemed.
 There are two `view` helper functions `calculateNeededETHAmount()` and
 `calculateNeededTokenAmount()` that should be called before using
 `autoOffsetExactOutETH()` and `autoOffsetExactOutToken()`, to determine how
-much MATIC, respectively how much of the ERC20 token must be sent to the
+much native token e.g. CELO, respectively how much of the ERC20 token must be sent to the
 `OffsetHelper` contract in order to retire the specified amount of carbon.
 
 The two `view` helper functions `calculateExpectedPoolTokenForETH()` and
@@ -47,7 +47,7 @@ expected amount of TCO2s that will be offset using functions
 ### constructor
 
 ```solidity
-constructor(string[] _eligibleTokenSymbols, address[] _eligibleTokenAddresses) public
+constructor(string[] _eligibleTokenSymbols, address[] _eligibleTokenAddresses, string _baseToken, string _baseERC20) public
 ```
 
 Contract constructor. Should specify arrays of ERC20 symbols and
@@ -62,7 +62,9 @@ using `setEligibleTokenAddress()` and `deleteEligibleTokenAddress()`._
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | _eligibleTokenSymbols | string[] | A list of token symbols. |
-| _eligibleTokenAddresses | address[] | A list of token addresses corresponding to the provided token symbols. |
+| _eligibleTokenAddresses | address[] | A list of token addresses corresponding |
+| _baseToken | string | Symbol of the token the DEX uses to change to pool tokens e.g., NCTs |
+| _baseERC20 | string | Symbol of ERC20 token to get the current amount to swap to the provided token symbols. |
 
 ### Redeemed
 
@@ -176,16 +178,16 @@ function autoOffsetExactOutETH(address _poolToken, uint256 _amountToOffset) publ
 ```
 
 Retire carbon credits using the lowest quality (oldest) TCO2
-tokens available from the specified Toucan token pool by sending MATIC.
+tokens available from the specified Toucan token pool by sending a native token e.g. CELO.
 Use `calculateNeededETHAmount()` first in order to find out how much
-MATIC is required to retire the specified quantity of TCO2.
+of the native token e.g. CELO is required to retire the specified quantity of TCO2.
 
 This function:
-1. Swaps the Matic sent to the contract for the specified pool token.
+1. Swaps the native token e.g. CELO sent to the contract for the specified pool token.
 2. Redeems the pool token for the poorest quality TCO2 tokens available.
 3. Retires the TCO2 tokens.
 
-_If the user sends much MATIC, the leftover amount will be sent back
+_If the user sends much native token e.g. CELO, the leftover amount will be sent back
 to the user._
 
 #### Parameters
@@ -209,11 +211,11 @@ function autoOffsetExactInETH(address _poolToken) public payable returns (addres
 ```
 
 Retire carbon credits using the lowest quality (oldest) TCO2
-tokens available from the specified Toucan token pool by sending MATIC.
-All provided MATIC is consumed for offsetting.
+tokens available from the specified Toucan token pool by sending a native token e.g. CELO.
+All provided native token e.g. CELO is consumed for offsetting.
 
 This function:
-1. Swaps the Matic sent to the contract for the specified pool token.
+1. Swaps the native token e.g. CELO sent to the contract for the specified pool token.
 2. Redeems the pool token for the poorest quality TCO2 tokens available.
 3. Retires the TCO2 tokens.
 
@@ -367,7 +369,7 @@ receive() external payable
 function calculateNeededETHAmount(address _toToken, uint256 _toAmount) public view returns (uint256)
 ```
 
-Return how much MATIC is required in order to swap for the
+Return how much native token e.g. CELO is required in order to swap for the
 desired amount of a Toucan pool token, for example, BCT or NCT.
 
 #### Parameters
@@ -381,22 +383,22 @@ desired amount of a Toucan pool token, for example, BCT or NCT.
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | uint256 | amounts The amount of MATIC required in order to swap for the specified amount of the pool token |
+| [0] | uint256 | amounts The amount of native token e.g. CELO required in order to swap for the specified amount of the pool token |
 
 ### calculateExpectedPoolTokenForETH
 
 ```solidity
-function calculateExpectedPoolTokenForETH(uint256 _fromMaticAmount, address _toToken) public view returns (uint256)
+function calculateExpectedPoolTokenForETH(uint256 _fromETHAmount, address _toToken) public view returns (uint256)
 ```
 
 Calculates the expected amount of Toucan Pool token that can be
-acquired by swapping the provided amount of MATIC.
+acquired by swapping the provided amount of native token e.g. CELO.
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| _fromMaticAmount | uint256 | The amount of MATIC to swap |
+| _fromETHAmount | uint256 | The amount of native token e.g. CELO to swap |
 | _toToken | address | The address of the pool token to swap for, for example, NCT or BCT |
 
 #### Return Values
@@ -411,8 +413,8 @@ acquired by swapping the provided amount of MATIC.
 function swapExactOutETH(address _toToken, uint256 _toAmount) public payable
 ```
 
-Swap MATIC for Toucan pool tokens (BCT/NCT) on SushiSwap.
-Remaining MATIC that was not consumed by the swap is returned.
+Swap the native token e.g. CELO for Toucan pool tokens (BCT/NCT) on SushiSwap.
+Remaining native token e.g. CELO that was not consumed by the swap is returned.
 
 #### Parameters
 
@@ -427,8 +429,8 @@ Remaining MATIC that was not consumed by the swap is returned.
 function swapExactInETH(address _toToken) public payable returns (uint256)
 ```
 
-Swap MATIC for Toucan pool tokens (BCT/NCT) on SushiSwap. All
-provided MATIC will be swapped.
+Swap the native token e.g. CELO for Toucan pool tokens (BCT/NCT) on SushiSwap. All
+provided native token e.g. CELO will be swapped.
 
 #### Parameters
 
@@ -440,7 +442,7 @@ provided MATIC will be swapped.
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | uint256 | Resulting amount of Toucan pool token that got acquired for the swapped MATIC. |
+| [0] | uint256 | Resulting amount of Toucan pool token that got acquired for the swapped native token e.g. CELO. |
 
 ### withdraw
 

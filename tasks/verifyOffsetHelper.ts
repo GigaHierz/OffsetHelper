@@ -1,6 +1,10 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import addresses, { mumbaiAddresses } from "../utils/addresses";
+import celoAddresses, {
+  mumbaiAddresses,
+  alfajoresAddresses,
+  addresses,
+} from "../utils/addresses";
 
 task("verify:offsetHelper", "Verifies the OffsetHelper")
   .addParam("address", "The OffsetHelper address")
@@ -9,7 +13,13 @@ task("verify:offsetHelper", "Verifies the OffsetHelper")
       const { address } = taskArgs;
 
       const addressesToUse =
-        hre.network.name == "mumbai" ? mumbaiAddresses : addresses;
+        hre.network.name === "alfajores"
+          ? alfajoresAddresses
+          : hre.network.name === "celo"
+          ? celoAddresses
+          : hre.network.name === "mumbai"
+          ? mumbaiAddresses
+          : addresses;
 
       await hre.run("verify:verify", {
         address: address,

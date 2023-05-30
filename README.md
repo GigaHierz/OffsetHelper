@@ -30,7 +30,7 @@ See [`./docs/OffsetHelper.md`](./docs/OffsetHelper.md) for detailed documentatio
    yarn
    ```
 2. Copy `.env.example` to `.env` and modify values of the required environment variables:
-   1. `RPC_ENDPOINT` to specify custom RPC endpoints for Polygon Mainnet, respectively, the Mumbai Testnet.
+   1. `RPC_ENDPOINT` to specify custom RPC endpoints for Celo, Alfajores, Polygon Mainnet, respectively, the Mumbai Testnet.
    2. `PRIVATE_KEY` and `BLOCK_EXPLORER_API_KEY` in order to deploy contract and publish source code on [polygonscan](https://polygonscan.com). If you are developing make sure that you are using a special wallet only for development purposes that doesn't contain real life funds.
 
 ## Commands
@@ -49,5 +49,11 @@ yarn doc
 yarn hardhat deploy --network <network>
 
 # verify the contract
-yarn hardhat verify:offsetHelper --network mumbai --address <address where Offset Helper was deployed>
+yarn hardhat verify:offsetHelper --network <network> --address <address where Offset Helper was deployed>
 ```
+
+## Adding a new chain
+
+- add all addresses to the `./utils/addresses.ts`
+- add Dex Router address for the deployment to the `OffsetHelperStorage.sol` contract, in the case of Ubeswap take the normal one or the moola?
+- add baseToken and base ERC20 token to the `deploy/00_deploy_offsetHelper.ts`, meaning baseToken is the token that the Dex always exchnages too, e.g., Ubeswap always swaps to "mcUSD" before swapping to NCTs. And then the `baseERC20` stands for the token you calculate the needed amount with.

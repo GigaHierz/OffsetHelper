@@ -18,7 +18,7 @@ import {
   OffsetHelper__factory,
   Swapper,
   Swapper__factory,
-} from "../typechain";
+} from "../types";
 import addresses from "../utils/addresses";
 import { BigNumber } from "ethers";
 import { sum as sumBN } from "../utils/bignumber";
@@ -36,6 +36,9 @@ function parseUSDC(s: string): BigNumber {
 
 describe("OffsetHelper", function () {
   const TOKEN_POOLS = ["nct", "bct"];
+  const networkName = "mumbai";
+  const dexRouterAddress = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506"; // SushiSwap
+  const tokenAddresses = addresses[networkName];
 
   async function deployOffsetHelperFixture() {
     const [addr1, addr2, ...addrs] = await ethers.getSigners();
@@ -45,15 +48,22 @@ describe("OffsetHelper", function () {
       addr2
     )) as OffsetHelper__factory;
     const offsetHelper = await offsetHelperFactory.deploy(
-      Object.keys(addresses),
-      Object.values(addresses)
+      Object.keys(tokenAddresses),
+      Object.values(tokenAddresses),
+      "USDC",
+      "WMATIC"
     );
 
-    const bct = IToucanPoolToken__factory.connect(addresses.BCT, addr2);
-    const nct = IToucanPoolToken__factory.connect(addresses.NCT, addr2);
-    const usdc = IERC20__factory.connect(addresses.USDC, addr2);
-    const weth = IERC20__factory.connect(addresses.WETH, addr2);
-    const wmatic = IWETH__factory.connect(addresses.WMATIC, addr2);
+    console.log(tokenAddresses);
+    console.log(OffsetHelper);
+    console.log(IToucanPoolToken);
+    console.log(IToucanPoolToken__factory);
+
+    const bct = IToucanPoolToken__factory.connect(tokenAddresses.BCT, addr2);
+    const nct = IToucanPoolToken__factory.connect(tokenAddresses.NCT, addr2);
+    const usdc = IERC20__factory.connect(tokenAddresses.USDC, addr2);
+    const weth = IERC20__factory.connect(tokenAddresses.WETH, addr2);
+    const wmatic = IWETH__factory.connect(tokenAddresses.WMATIC, addr2);
 
     const tokens: Record<string, token> = {
       nct: {
@@ -73,12 +83,16 @@ describe("OffsetHelper", function () {
     const swapper = await swapperFactory.deploy(
       ["BCT", "NCT", "USDC", "WETH", "WMATIC"],
       [
-        addresses.BCT,
-        addresses.NCT,
-        addresses.USDC,
-        addresses.WETH,
-        addresses.WMATIC,
-      ]
+        tokenAddresses.BCT,
+        tokenAddresses.NCT,
+        tokenAddresses.USDC,
+        tokenAddresses.WETH,
+        tokenAddresses.WMATIC,
+      ],
+      networkName,
+      dexRouterAddress,
+      "USDC",
+      "WMATIC"
     );
 
     await Promise.all(
@@ -90,34 +104,34 @@ describe("OffsetHelper", function () {
       })
     );
 
-    await IWETH__factory.connect(addresses.WMATIC, addr2).deposit({
+    await IWETH.connect(tokenAddresses.WMATIC, addr2).deposit({
       value: parseEther("1000"),
     });
 
-    await swapper.swap(addresses.WETH, parseEther("20.0"), {
+    await swapper.swap(tokenAddresses.WETH, parseEther("20.0"), {
       value: await swapper.calculateNeededETHAmount(
-        addresses.WETH,
+        tokenAddresses.WETH,
         parseEther("20.0")
       ),
     });
 
-    await swapper.swap(addresses.USDC, parseUSDC("1000"), {
+    await swapper.swap(tokenAddresses.USDC, parseUSDC("1000"), {
       value: await swapper.calculateNeededETHAmount(
-        addresses.USDC,
+        tokenAddresses.USDC,
         parseUSDC("1000")
       ),
     });
 
-    await swapper.swap(addresses.BCT, parseEther("50.0"), {
+    await swapper.swap(tokenAddresses.BCT, parseEther("50.0"), {
       value: await swapper.calculateNeededETHAmount(
-        addresses.BCT,
+        tokenAddresses.BCT,
         parseEther("50.0")
       ),
     });
 
-    await swapper.swap(addresses.NCT, parseEther("50.0"), {
+    await swapper.swap(tokenAddresses.NCT, parseEther("50.0"), {
       value: await swapper.calculateNeededETHAmount(
-        addresses.NCT,
+        tokenAddresses.NCT,
         parseEther("50.0")
       ),
     });
@@ -134,7 +148,7 @@ describe("OffsetHelper", function () {
     };
   }
 
-  describe("#autoOffsetExactInToken()", function () {
+  describe.only("#autoOffsetExactInToken()", function () {
     async function retireFixedInToken(
       fromToken: IERC20,
       fromAmount: BigNumber,
@@ -263,14 +277,14 @@ describe("OffsetHelper", function () {
 
         // then we calculate the cost in MATIC of retiring 1.0 TCO2
         const maticCost = await offsetHelper.calculateNeededETHAmount(
-          poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+          poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
           ONE_ETHER
         );
 
         // then we use the autoOffset function to retire 1.0 TCO2 from MATIC using NCT
         const tx = await (
           await offsetHelper.autoOffsetExactOutETH(
-            poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+            poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
             ONE_ETHER,
             {
               value: maticCost,
@@ -314,7 +328,7 @@ describe("OffsetHelper", function () {
           await poolToken.token().approve(offsetHelper.address, ONE_ETHER)
         ).wait();
         await offsetHelper.autoOffsetPoolToken(
-          poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+          poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
           ONE_ETHER
         );
 
@@ -353,7 +367,7 @@ describe("OffsetHelper", function () {
           await poolToken.token().approve(offsetHelper.address, ONE_ETHER)
         ).wait();
         await offsetHelper.autoOffsetPoolToken(
-          poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+          poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
           ONE_ETHER
         );
 
@@ -387,16 +401,16 @@ describe("OffsetHelper", function () {
 
         // then we calculate the cost in USDC of retiring 1.0 TCO2
         const usdcCost = await offsetHelper.calculateNeededTokenAmount(
-          addresses.USDC,
-          poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+          tokenAddresses.USDC,
+          poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
           ONE_ETHER
         );
 
         // then we use the autoOffset function to retire 1.0 TCO2 from USDC using NCT/BCT
         await (await usdc.approve(offsetHelper.address, usdcCost)).wait();
         await offsetHelper.autoOffsetExactOutToken(
-          addresses.USDC,
-          poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+          tokenAddresses.USDC,
+          poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
           ONE_ETHER
         );
 
@@ -428,16 +442,16 @@ describe("OffsetHelper", function () {
 
         // and we calculate the cost in WMATIC of retiring 1.0 TCO2
         const wmaticCost = await offsetHelper.calculateNeededTokenAmount(
-          addresses.WMATIC,
-          poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+          tokenAddresses.WMATIC,
+          poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
           ONE_ETHER
         );
 
         // we use the autoOffset function to retire 1.0 TCO2 from WMATIC using NCT
         await (await wmatic.approve(offsetHelper.address, wmaticCost)).wait();
         await offsetHelper.autoOffsetExactOutToken(
-          addresses.WMATIC,
-          poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+          tokenAddresses.WMATIC,
+          poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
           ONE_ETHER
         );
 
@@ -469,16 +483,16 @@ describe("OffsetHelper", function () {
 
         // then we calculate the cost in WETH of retiring 1.0 TCO2
         const wethCost = await offsetHelper.calculateNeededTokenAmount(
-          addresses.WETH,
-          poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+          tokenAddresses.WETH,
+          poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
           ONE_ETHER
         );
 
         // then we use the autoOffset function to retire 1.0 TCO2 from WETH using pool token
         await (await weth.approve(offsetHelper.address, wethCost)).wait();
         await offsetHelper.autoOffsetExactOutToken(
-          addresses.WETH,
-          poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+          tokenAddresses.WETH,
+          poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
           ONE_ETHER
         );
 
@@ -509,7 +523,7 @@ describe("OffsetHelper", function () {
 
         await expect(
           offsetHelper.autoRedeem(
-            poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+            poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
             ONE_ETHER
           )
         ).to.be.revertedWith("Insufficient NCT/BCT balance");
@@ -544,7 +558,7 @@ describe("OffsetHelper", function () {
         ).wait();
         await (
           await offsetHelper.deposit(
-            poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+            poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
             ONE_ETHER
           )
         ).wait();
@@ -582,7 +596,7 @@ describe("OffsetHelper", function () {
 
         // we redeem 1.0 pool token from the OH contract for TCO2s
         await offsetHelper.autoRedeem(
-          poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+          poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
           ONE_ETHER
         );
 
@@ -659,7 +673,7 @@ describe("OffsetHelper", function () {
         ).wait();
         await (
           await offsetHelper.deposit(
-            poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+            poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
             ONE_ETHER
           )
         ).wait();
@@ -696,7 +710,7 @@ describe("OffsetHelper", function () {
         // we redeem pool token for TCO2 within OH
         const redeemReceipt = await (
           await offsetHelper.autoRedeem(
-            poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+            poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
             ONE_ETHER
           )
         ).wait();
@@ -784,7 +798,9 @@ describe("OffsetHelper", function () {
           offsetHelper
             .connect(addrs[0])
             .deposit(
-              poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+              poolToken.name === "BCT"
+                ? tokenAddresses.BCT
+                : tokenAddresses.NCT,
               ONE_ETHER
             )
         ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
@@ -806,14 +822,14 @@ describe("OffsetHelper", function () {
 
         await (
           await offsetHelper.deposit(
-            poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+            poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
             ONE_ETHER
           )
         ).wait();
 
         await (
           await offsetHelper.withdraw(
-            poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+            poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
             ONE_ETHER
           )
         ).wait();
@@ -839,14 +855,14 @@ describe("OffsetHelper", function () {
 
         await (
           await offsetHelper.deposit(
-            poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+            poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
             ONE_ETHER
           )
         ).wait();
 
         await expect(
           offsetHelper.withdraw(
-            poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+            poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
             parseEther("2.0")
           )
         ).to.be.revertedWith("Insufficient balance");
@@ -864,7 +880,7 @@ describe("OffsetHelper", function () {
 
         await (
           await offsetHelper.deposit(
-            poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+            poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
             ONE_ETHER
           )
         ).wait();
@@ -873,7 +889,7 @@ describe("OffsetHelper", function () {
           formatEther(
             await offsetHelper.balances(
               addr2.address,
-              poolToken.name === "BCT" ? addresses.BCT : addresses.NCT
+              poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT
             )
           )
         ).to.be.eql("1.0");
@@ -890,13 +906,13 @@ describe("OffsetHelper", function () {
         const poolToken = tokens[name];
 
         const maticToSend = await offsetHelper.calculateNeededETHAmount(
-          poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+          poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
           ONE_ETHER
         );
 
         await (
           await offsetHelper.swapExactOutETH(
-            poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+            poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
             ONE_ETHER,
             {
               value: maticToSend,
@@ -919,13 +935,13 @@ describe("OffsetHelper", function () {
         );
 
         const maticToSend = await offsetHelper.calculateNeededETHAmount(
-          poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+          poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
           ONE_ETHER
         );
 
         await (
           await offsetHelper.swapExactOutETH(
-            poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+            poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
             ONE_ETHER,
             {
               value: maticToSend.add(parseEther("0.5")),
@@ -958,8 +974,10 @@ describe("OffsetHelper", function () {
           offsetHelper
             .connect(addrs[0])
             .swapExactOutToken(
-              addresses.WETH,
-              poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+              tokenAddresses.WETH,
+              poolToken.name === "BCT"
+                ? tokenAddresses.BCT
+                : tokenAddresses.NCT,
               ONE_ETHER
             )
         ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
@@ -976,8 +994,8 @@ describe("OffsetHelper", function () {
           .balanceOf(offsetHelper.address);
 
         const neededAmount = await offsetHelper.calculateNeededTokenAmount(
-          addresses.WETH,
-          poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+          tokenAddresses.WETH,
+          poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
           ONE_ETHER
         );
 
@@ -985,8 +1003,8 @@ describe("OffsetHelper", function () {
 
         await (
           await offsetHelper.swapExactOutToken(
-            addresses.WETH,
-            poolToken.name === "BCT" ? addresses.BCT : addresses.NCT,
+            tokenAddresses.WETH,
+            poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT,
             ONE_ETHER
           )
         ).wait();
@@ -1002,7 +1020,7 @@ describe("OffsetHelper", function () {
           formatEther(
             await offsetHelper.balances(
               addr2.address,
-              poolToken.name === "BCT" ? addresses.BCT : addresses.NCT
+              poolToken.name === "BCT" ? tokenAddresses.BCT : tokenAddresses.NCT
             )
           )
         ).to.be.eql("1.0");

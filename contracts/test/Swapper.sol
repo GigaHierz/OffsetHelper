@@ -7,44 +7,56 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 contract Swapper {
     using SafeERC20 for IERC20;
 
-    address public sushiRouterAddress =
-        0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506;
+    address public dexRouterAddress;
+    string public network;
+    string public baseToken; // token that the exchange uses to swap to pool tokens (NCT)
+    string public baseERC20; // token to get needed ERC20 amount
     mapping(string => address) public tokenAddresses;
 
-    constructor(string[] memory _tokenSymbols, address[] memory _tokenAddresses)
-    {
+    constructor(
+        string[] memory _tokenSymbols,
+        address[] memory _tokenAddresses,
+        string memory _network,
+        address _routerAddress,
+        string memory _baseToken,
+        string memory _baseERC20
+    ) {
         uint256 i = 0;
         while (i < _tokenSymbols.length) {
             tokenAddresses[_tokenSymbols[i]] = _tokenAddresses[i];
             i += 1;
         }
+        dexRouterAddress = _routerAddress;
+        network = _network;
+        dexRouterAddress = _routerAddress;
+        baseToken = _baseToken;
+        baseERC20 = _baseERC20;
     }
 
-    function calculateNeededETHAmount(address _toToken, uint256 _amount)
-        public
-        view
-        returns (uint256)
-    {
-        IUniswapV2Router02 routerSushi = IUniswapV2Router02(sushiRouterAddress);
+    function calculateNeededETHAmount(
+        address _toToken,
+        uint256 _amount
+    ) public view returns (uint256) {
+        IUniswapV2Router02 router = IUniswapV2Router02(dexRouterAddress);
 
         address[] memory path = generatePath(
-            tokenAddresses["WMATIC"],
+            tokenAddresses[baseERC20],
             _toToken
         );
 
-        uint256[] memory amounts = routerSushi.getAmountsIn(_amount, path);
+        uint256[] memory amounts = router.getAmountsIn(_amount, path);
         return amounts[0];
     }
 
     function swap(address _toToken, uint256 _amount) public payable {
-        IUniswapV2Router02 routerSushi = IUniswapV2Router02(sushiRouterAddress);
+        IUniswapV2Router02 router = IUniswapV2Router02(dexRouterAddress);
 
         address[] memory path = generatePath(
-            tokenAddresses["WMATIC"],
+            tokenAddresses[baseERC20],
             _toToken
         );
 
-        uint256[] memory amounts = routerSushi.swapETHForExactTokens{
+        uint256[] memory amounts = router.swapETHForExactTokens{
             value: msg.value
         }(_amount, path, address(this), block.timestamp);
 
@@ -60,20 +72,25 @@ contract Swapper {
         }
     }
 
-    function generatePath(address _fromToken, address _toToken)
-        internal
-        view
-        returns (address[] memory)
-    {
-        if (_toToken == tokenAddresses["USDC"]) {
+    function generatePath(
+        address _fromToken,
+        address _toToken
+    ) internal view returns (address[] memory) {
+        if (_toToken == tokenAddresses[baseToken]) {
             address[] memory path = new address[](2);
             path[0] = _fromToken;
             path[1] = _toToken;
             return path;
-        } else {
+        } else if (_toToken == tokenAddresses[baseERC20]) {
             address[] memory path = new address[](3);
             path[0] = _fromToken;
-            path[1] = tokenAddresses["USDC"];
+            path[1] = tokenAddresses[baseToken];
+            path[2] = _toToken;
+            return path;
+        } else {
+            address[] memory path = new address[](4);
+            path[0] = _fromToken;
+            path[1] = tokenAddresses[baseToken];
             path[2] = _toToken;
             return path;
         }
