@@ -8,7 +8,6 @@ contract Swapper {
     using SafeERC20 for IERC20;
 
     address public dexRouterAddress;
-    string public network;
     string public baseToken; // token that the exchange uses to swap to pool tokens (NCT)
     string public baseERC20; // token to get needed ERC20 amount
     mapping(string => address) public tokenAddresses;
@@ -27,7 +26,6 @@ contract Swapper {
             i += 1;
         }
         dexRouterAddress = _routerAddress;
-        network = _network;
         dexRouterAddress = _routerAddress;
         baseToken = _baseToken;
         baseERC20 = _baseERC20;

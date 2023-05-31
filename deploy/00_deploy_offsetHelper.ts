@@ -20,8 +20,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     args: [
       Object.keys(addressesToUse),
       Object.values(addressesToUse),
-      "mcUSD",
-      "cUSD",
+      hre.network.name === "celo" || hre.network.name === "alfajores"
+        ? "mcUSD"
+        : "USDC",
+      hre.network.name === "celo" || hre.network.name === "alfajores"
+        ? "cUSD"
+        : "WMATIC",
     ],
     log: true,
     autoMine: true, // speed up deployment on local network (ganache, hardhat), no effect on live networks

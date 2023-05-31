@@ -55,9 +55,6 @@ describe("OffsetHelper", function () {
     );
 
     console.log(tokenAddresses);
-    console.log(OffsetHelper);
-    console.log(IToucanPoolToken);
-    console.log(IToucanPoolToken__factory);
 
     const bct = IToucanPoolToken__factory.connect(tokenAddresses.BCT, addr2);
     const nct = IToucanPoolToken__factory.connect(tokenAddresses.NCT, addr2);
@@ -104,7 +101,7 @@ describe("OffsetHelper", function () {
       })
     );
 
-    await IWETH.connect(tokenAddresses.WMATIC, addr2).deposit({
+    await IWETH__factory.connect(tokenAddresses.WMATIC, addr2).deposit({
       value: parseEther("1000"),
     });
 

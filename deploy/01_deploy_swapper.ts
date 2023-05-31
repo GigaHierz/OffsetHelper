@@ -14,33 +14,21 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     throw new Error("Missing deployer address");
   }
 
-  // Celo
   await deploy("Swapper", {
     from: deployer,
     args: [
       Object.keys(addressesToUse),
       Object.values(addressesToUse),
-      hre.network.name,
       dexRouterAddress,
-      "mcUSD",
-      "cUSD",
+      hre.network.name === "celo" || hre.network.name === "alfajores"
+        ? "mcUSD"
+        : "USDC",
+      hre.network.name === "celo" || hre.network.name === "alfajores"
+        ? "cUSD"
+        : "WMATIC",
     ],
     log: true,
     autoMine: true, // speed up deployment on local network (ganache, hardhat), no effect on live networks
   });
-
-  // Polygon
-  // await deploy("Swapper", {
-  //   from: deployer,
-  //   args: [
-  //     Object.keys(addressesToUse),
-  //     Object.values(addressesToUse),
-  //     dexRouterAddress,
-  //     "USDC",
-  //     "WMATIC",
-  //   ],
-  //   log: true,
-  //   autoMine: true, // speed up deployment on local network (ganache, hardhat), no effect on live networks
-  // });
 };
 export default func;
