@@ -18,7 +18,7 @@ import {
   OffsetHelper__factory,
   Swapper,
   Swapper__factory,
-} from "../types";
+} from "../typechain";
 import addresses from "../utils/addresses";
 import { BigNumber } from "ethers";
 import { sum as sumBN } from "../utils/bignumber";
