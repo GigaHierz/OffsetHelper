@@ -15,7 +15,6 @@ contract Swapper {
     constructor(
         string[] memory _tokenSymbols,
         address[] memory _tokenAddresses,
-        string memory _network,
         address _routerAddress,
         string memory _baseToken,
         string memory _baseERC20
@@ -25,7 +24,6 @@ contract Swapper {
             tokenAddresses[_tokenSymbols[i]] = _tokenAddresses[i];
             i += 1;
         }
-        dexRouterAddress = _routerAddress;
         dexRouterAddress = _routerAddress;
         baseToken = _baseToken;
         baseERC20 = _baseERC20;

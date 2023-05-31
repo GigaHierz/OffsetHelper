@@ -149,10 +149,16 @@ contract OffsetHelper is OffsetHelperStorage {
     function autoOffsetExactOutToken(
         address _depositedToken,
         address _poolToken,
-        uint256 _amountToOffset
+        uint256 _amountToOffset,
+        address[] memory _customPath
     ) public returns (address[] memory tco2s, uint256[] memory amounts) {
         // swap input token for BCT / NCT
-        swapExactOutToken(_depositedToken, _poolToken, _amountToOffset);
+        swapExactOutToken(
+            _depositedToken,
+            _poolToken,
+            _amountToOffset,
+            _customPath
+        );
 
         // redeem BCT / NCT for TCO2s
         (tco2s, amounts) = autoRedeem(_poolToken, _amountToOffset);
@@ -191,13 +197,15 @@ contract OffsetHelper is OffsetHelperStorage {
     function autoOffsetExactInToken(
         address _fromToken,
         uint256 _amountToSwap,
-        address _poolToken
+        address _poolToken,
+        address[] memory _customPath
     ) public returns (address[] memory tco2s, uint256[] memory amounts) {
         // swap input token for BCT / NCT
         uint256 amountToOffset = swapExactInToken(
             _fromToken,
             _amountToSwap,
-            _poolToken
+            _poolToken,
+            _customPath
         );
 
         // redeem BCT / NCT for TCO2s
@@ -230,14 +238,15 @@ contract OffsetHelper is OffsetHelperStorage {
      */
     function autoOffsetExactOutETH(
         address _poolToken,
-        uint256 _amountToOffset
+        uint256 _amountToOffset,
+        address[] memory _customPath
     )
         public
         payable
         returns (address[] memory tco2s, uint256[] memory amounts)
     {
         // swap the native token e.g. CELO for BCT / NCT
-        swapExactOutETH(_poolToken, _amountToOffset);
+        swapExactOutETH(_poolToken, _amountToOffset, _customPath);
 
         // redeem BCT / NCT for TCO2s
         (tco2s, amounts) = autoRedeem(_poolToken, _amountToOffset);
@@ -263,14 +272,15 @@ contract OffsetHelper is OffsetHelperStorage {
      * @return amounts An array of the amounts of each TCO2 that were redeemed
      */
     function autoOffsetExactInETH(
-        address _poolToken
+        address _poolToken,
+        address[] memory _customPath
     )
         public
         payable
         returns (address[] memory tco2s, uint256[] memory amounts)
     {
         // swap the native token e.g. CELO for BCT / NCT
-        uint256 amountToOffset = swapExactInETH(_poolToken);
+        uint256 amountToOffset = swapExactInETH(_poolToken, _customPath);
 
         // redeem BCT / NCT for TCO2s
         (tco2s, amounts) = autoRedeem(_poolToken, amountToOffset);
@@ -371,7 +381,8 @@ contract OffsetHelper is OffsetHelperStorage {
     function calculateNeededTokenAmount(
         address _fromToken,
         address _toToken,
-        uint256 _toAmount
+        uint256 _toAmount,
+        address[] memory _customPath
     )
         public
         view
@@ -382,7 +393,8 @@ contract OffsetHelper is OffsetHelperStorage {
         (, uint256[] memory amounts) = calculateExactOutSwap(
             _fromToken,
             _toToken,
-            _toAmount
+            _toAmount,
+            _customPath
         );
         return amounts[0];
     }
@@ -400,7 +412,8 @@ contract OffsetHelper is OffsetHelperStorage {
     function calculateExpectedPoolTokenForToken(
         address _fromToken,
         uint256 _fromAmount,
-        address _toToken
+        address _toToken,
+        address[] memory _customPath
     )
         public
         view
@@ -411,7 +424,8 @@ contract OffsetHelper is OffsetHelperStorage {
         (, uint256[] memory amounts) = calculateExactInSwap(
             _fromToken,
             _fromAmount,
-            _toToken
+            _toToken,
+            _customPath
         );
         return amounts[amounts.length - 1];
     }
@@ -426,13 +440,14 @@ contract OffsetHelper is OffsetHelperStorage {
     function swapExactOutToken(
         address _fromToken,
         address _toToken,
-        uint256 _toAmount
+        uint256 _toAmount,
+        address[] memory _customPath
     ) public onlySwappable(_fromToken) onlyRedeemable(_toToken) {
         // calculate path & amounts
         (
             address[] memory path,
             uint256[] memory expAmounts
-        ) = calculateExactOutSwap(_fromToken, _toToken, _toAmount);
+        ) = calculateExactOutSwap(_fromToken, _toToken, _toAmount, _customPath);
         uint256 amountIn = expAmounts[0];
 
         // transfer tokens
@@ -476,7 +491,8 @@ contract OffsetHelper is OffsetHelperStorage {
     function swapExactInToken(
         address _fromToken,
         uint256 _fromAmount,
-        address _toToken
+        address _toToken,
+        address[] memory _customPath
     )
         public
         onlySwappable(_fromToken)
@@ -484,7 +500,7 @@ contract OffsetHelper is OffsetHelperStorage {
         returns (uint256)
     {
         // calculate path & amounts
-        address[] memory path = generatePath(_fromToken, _toToken);
+        address[] memory path = generatePath(_fromToken, _toToken, _customPath);
         uint256 len = path.length;
 
         // transfer tokens
@@ -531,13 +547,15 @@ contract OffsetHelper is OffsetHelperStorage {
      */
     function calculateNeededETHAmount(
         address _toToken,
-        uint256 _toAmount
+        uint256 _toAmount,
+        address[] memory _customPath
     ) public view onlyRedeemable(_toToken) returns (uint256) {
         address fromToken = eligibleTokenAddresses[baseERC20];
         (, uint256[] memory amounts) = calculateExactOutSwap(
             fromToken,
             _toToken,
-            _toAmount
+            _toAmount,
+            _customPath
         );
         return amounts[0];
     }
@@ -553,13 +571,15 @@ contract OffsetHelper is OffsetHelperStorage {
      */
     function calculateExpectedPoolTokenForETH(
         uint256 _fromETHAmount,
-        address _toToken
+        address _toToken,
+        address[] memory _customPath
     ) public view onlyRedeemable(_toToken) returns (uint256) {
         address fromToken = eligibleTokenAddresses[baseERC20];
         (, uint256[] memory amounts) = calculateExactInSwap(
             fromToken,
             _fromETHAmount,
-            _toToken
+            _toToken,
+            _customPath
         );
         return amounts[amounts.length - 1];
     }
@@ -572,11 +592,26 @@ contract OffsetHelper is OffsetHelperStorage {
      */
     function swapExactOutETH(
         address _toToken,
-        uint256 _toAmount
+        uint256 _toAmount,
+        address[] memory _customPath
     ) public payable onlyRedeemable(_toToken) {
+        // Custom `_customPath` logic only makes sense if the swap is multi-step
+        require(
+            _customPath.length == 0 || _customPath.length == 3,
+            "Invalid custom path"
+        );
+
+        if (_customPath.length == 3) {
+            require(
+                _customPath[0] == eligibleTokenAddresses[baseERC20],
+                "Token should not be the default"
+            );
+            require(isRedeemable(_customPath[2]), "Token not redeemable");
+        }
+
         // calculate path & amounts
         address fromToken = eligibleTokenAddresses[baseERC20];
-        address[] memory path = generatePath(fromToken, _toToken);
+        address[] memory path = generatePath(fromToken, _toToken, _customPath);
 
         // swap
         uint256[] memory amounts = dexRouter().swapETHForExactTokens{
@@ -605,12 +640,27 @@ contract OffsetHelper is OffsetHelperStorage {
      * swapped native token e.g. CELO.
      */
     function swapExactInETH(
-        address _toToken
+        address _toToken,
+        address[] memory _customPath
     ) public payable onlyRedeemable(_toToken) returns (uint256) {
+        // Custom `_customPath` logic only makes sense if the swap is multi-step
+        require(
+            _customPath.length == 0 || _customPath.length == 3,
+            "Invalid custom path"
+        );
+
+        if (_customPath.length == 3) {
+            require(
+                _customPath[0] == eligibleTokenAddresses[baseERC20],
+                "Token should not be the default token"
+            );
+            require(isRedeemable(_customPath[2]), "Token not redeemable");
+        }
+
         // calculate path & amounts
         uint256 fromAmount = msg.value;
         address fromToken = eligibleTokenAddresses[baseERC20];
-        address[] memory path = generatePath(fromToken, _toToken);
+        address[] memory path = generatePath(fromToken, _toToken, _customPath);
         uint256 len = path.length;
 
         // swap
@@ -639,7 +689,7 @@ contract OffsetHelper is OffsetHelperStorage {
     }
 
     /**
-     * @notice Allow users to deposit BCT / NCT.ce
+     * @notice Allow users to deposit BCT / NCT.
      * @dev Needs to be approved
      */
     function deposit(
@@ -728,9 +778,10 @@ contract OffsetHelper is OffsetHelperStorage {
     function calculateExactOutSwap(
         address _fromToken,
         address _toToken,
-        uint256 _toAmount
+        uint256 _toAmount,
+        address[] memory _customPath
     ) internal view returns (address[] memory path, uint256[] memory amounts) {
-        path = generatePath(_fromToken, _toToken);
+        path = generatePath(_fromToken, _toToken, _customPath);
         uint256 len = path.length;
 
         amounts = dexRouter().getAmountsIn(_toAmount, path);
@@ -743,9 +794,10 @@ contract OffsetHelper is OffsetHelperStorage {
     function calculateExactInSwap(
         address _fromToken,
         uint256 _fromAmount,
-        address _toToken
+        address _toToken,
+        address[] memory _customPath
     ) internal view returns (address[] memory path, uint256[] memory amounts) {
-        path = generatePath(_fromToken, _toToken);
+        path = generatePath(_fromToken, _toToken, _customPath);
         uint256 len = path.length;
 
         amounts = dexRouter().getAmountsOut(_fromAmount, path);
@@ -757,19 +809,24 @@ contract OffsetHelper is OffsetHelperStorage {
 
     function generatePath(
         address _fromToken,
-        address _toToken
+        address _toToken,
+        address[] memory _customPath
     ) internal view returns (address[] memory) {
-        if (_fromToken == eligibleTokenAddresses[baseToken]) {
-            address[] memory path = new address[](2);
-            path[0] = _fromToken;
-            path[1] = _toToken;
-            return path;
+        if (_customPath.length > 1) {
+            return _customPath;
         } else {
-            address[] memory path = new address[](3);
-            path[0] = _fromToken;
-            path[1] = eligibleTokenAddresses[baseToken];
-            path[2] = _toToken;
-            return path;
+            if (_fromToken == eligibleTokenAddresses[baseToken]) {
+                address[] memory path = new address[](2);
+                path[0] = _fromToken;
+                path[1] = _toToken;
+                return path;
+            } else {
+                address[] memory path = new address[](3);
+                path[0] = _fromToken;
+                path[1] = eligibleTokenAddresses[baseToken];
+                path[2] = _toToken;
+                return path;
+            }
         }
     }
 
