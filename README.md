@@ -12,7 +12,8 @@ With the OffsetHelper contract, the user only needs to interact with the OffsetH
 
 ## Deployments
 
-For current deployments, see the `./deployments` folder.
+For current deployments and ABIs, see the [`./deployments`](./deployments/) folder.
+Find all contract addresses [here](https://app.toucan.earth/contracts)
 
 ## OffsetHelper
 
@@ -30,7 +31,7 @@ See [./docs/OffsetHelper.md](./docs/OffsetHelper.md) for detailed documentation.
    ```
 2. Copy `.env.example` to `.env` and modify values of the required environment variables:
    1. `POLYGON_URL`/`MUMBAI_URL` to specify custom RPC endpoints for Polygon Mainnet, respectively, the Mumbai Testnet.
-   2. `PRIVATE_KEY` and `POLYGONSCAN_KEY` in order to deploy contract and publish source code on [polygonscan](https://polygonscan.com).
+   2. `PRIVATE_KEY` and `POLYGONSCAN_API_KEY` in order to deploy contract and publish source code on [polygonscan](https://polygonscan.com). You will be able to find the private key in your MetaMask wallet like [this](https://support.metamask.io/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key). If you are developing make sure that you are using a special wallet only for development that doesn't contain real life funds. You can create your `POLYGONSCAN_API_KEY` on [Alchemy](https://www.alchemy.com). 
 
 ## Commands
 
