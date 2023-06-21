@@ -6,6 +6,7 @@ import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { formatEther, parseEther, parseUnits } from "ethers/lib/utils";
+import paths, { poolAddresses } from "../utils/paths";
 
 import {
   IERC20,
@@ -19,7 +20,7 @@ import {
   Swapper,
   Swapper__factory,
 } from "../typechain";
-import addresses from "../utils/addresses";
+// import addresses from "../utils/addresses";
 import { BigNumber } from "ethers";
 import { sum as sumBN } from "../utils/bignumber";
 
@@ -27,6 +28,9 @@ type token = {
   name: string;
   token: () => IToucanPoolToken;
 };
+
+const addresses = paths.polygon;
+const poolAddress = poolAddresses.polygon;
 
 const ONE_ETHER = parseEther("1.0");
 
@@ -45,12 +49,13 @@ describe("OffsetHelper", function () {
       addr2
     )) as OffsetHelper__factory;
     const offsetHelper = await offsetHelperFactory.deploy(
-      Object.keys(addresses),
-      Object.values(addresses)
+      Object.values(poolAddresses),
+      Object.keys(paths),
+      Object.values(paths)
     );
 
-    const bct = IToucanPoolToken__factory.connect(addresses.BCT, addr2);
-    const nct = IToucanPoolToken__factory.connect(addresses.NCT, addr2);
+    const bct = IToucanPoolToken__factory.connect(poolAddress.BCT, addr2);
+    const nct = IToucanPoolToken__factory.connect(poolAddress.NCT, addr2);
     const usdc = IERC20__factory.connect(addresses.USDC, addr2);
     const weth = IERC20__factory.connect(addresses.WETH, addr2);
     const wmatic = IWETH__factory.connect(addresses.WMATIC, addr2);
@@ -73,8 +78,8 @@ describe("OffsetHelper", function () {
     const swapper = await swapperFactory.deploy(
       ["BCT", "NCT", "USDC", "WETH", "WMATIC"],
       [
-        addresses.BCT,
-        addresses.NCT,
+        poolAddress.BCT,
+        poolAddress.NCT,
         addresses.USDC,
         addresses.WETH,
         addresses.WMATIC,

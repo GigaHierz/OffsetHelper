@@ -39,6 +39,18 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
+    alfajores: {
+      url: "https://alfajores-forno.celo-testnet.org",
+      accounts:
+        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      chainId: 44787,
+    },
+    celo: {
+      url: "https://forno.celo.org",
+      accounts:
+        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      chainId: 42220,
+    },
     polygon: {
       url:
         process.env.POLYGON_URL || "https://matic-mainnet.chainstacklabs.com",

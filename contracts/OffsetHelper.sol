@@ -57,6 +57,9 @@ import "./interfaces/IToucanContractRegistry.sol";
  */
 contract OffsetHelper is OffsetHelperStorage {
     using SafeERC20 for IERC20;
+    address[] poolAddresses;
+    string[] tokenSymbolsForPaths;
+    address[][] paths;
 
     /**
      * @notice Contract constructor. Should specify arrays of ERC20 symbols and
@@ -66,20 +69,25 @@ contract OffsetHelper is OffsetHelperStorage {
      * contract. These can be modified after deployment by the contract owner
      * using `setEligibleTokenAddress()` and `deleteEligibleTokenAddress()`.
      *
-     * @param _eligibleTokenSymbols A list of token symbols.
-     * @param _eligibleTokenAddresses A list of token addresses corresponding
+     * @param _poolAddresses A list of pool token addresses.
+     * @param _tokenSymbolsForPaths An array of symbols of the token the user want to retire carbon credits for
+     * @param _paths An array of arrays of addresses to describe the path needed to swap form the baseToken to the pool Token
      * to the provided token symbols.
      */
     constructor(
-        string[] memory _eligibleTokenSymbols,
-        address[] memory _eligibleTokenAddresses
+        address[] memory _poolAddresses,
+        string[] memory _tokenSymbolsForPaths,
+        address[][] memory _paths
     ) {
+        poolAddresses = _poolAddresses;
+        tokenSymbolsForPaths = _tokenSymbolsForPaths;
+        paths = _paths;
+
         uint256 i = 0;
-        uint256 eligibleTokenSymbolsLen = _eligibleTokenSymbols.length;
-        while (i < eligibleTokenSymbolsLen) {
-            eligibleTokenAddresses[
-                _eligibleTokenSymbols[i]
-            ] = _eligibleTokenAddresses[i];
+        uint256 eligibleSwapPathsBySymbolLen = _tokenSymbolsForPaths.length;
+        while (i < eligibleSwapPathsBySymbolLen) {
+            eligibleSwapPaths[_paths[i][0]] = _paths[i];
+            eligibleSwapPathsBySymbol[_tokenSymbolsForPaths[i]] = _paths[i];
             i += 1;
         }
     }
@@ -108,7 +116,7 @@ contract OffsetHelper is OffsetHelperStorage {
     }
 
     modifier onlySwappable(address _token) {
-        require(isSwappable(_token), "Token not swappable");
+        require(isSwappable(_token), "Path doesn't yet exists.");
 
         _;
     }
@@ -188,7 +196,11 @@ contract OffsetHelper is OffsetHelperStorage {
         address _poolToken
     ) public returns (address[] memory tco2s, uint256[] memory amounts) {
         // swap input token for BCT / NCT
-        uint256 amountToOffset = swapExactInToken(_fromToken, _amountToSwap, _poolToken);
+        uint256 amountToOffset = swapExactInToken(
+            _fromToken,
+            _amountToSwap,
+            _poolToken
+        );
 
         // redeem BCT / NCT for TCO2s
         (tco2s, amounts) = autoRedeem(_poolToken, amountToOffset);
@@ -218,13 +230,17 @@ contract OffsetHelper is OffsetHelperStorage {
      * @return tco2s An array of the TCO2 addresses that were redeemed
      * @return amounts An array of the amounts of each TCO2 that were redeemed
      */
-    function autoOffsetExactOutETH(address _poolToken, uint256 _amountToOffset)
+    function autoOffsetExactOutETH(
+        address _fromToken,
+        address _poolToken,
+        uint256 _amountToOffset
+    )
         public
         payable
         returns (address[] memory tco2s, uint256[] memory amounts)
     {
         // swap MATIC for BCT / NCT
-        swapExactOutETH(_poolToken, _amountToOffset);
+        swapExactOutETH(_fromToken, _poolToken, _amountToOffset);
 
         // redeem BCT / NCT for TCO2s
         (tco2s, amounts) = autoRedeem(_poolToken, _amountToOffset);
@@ -243,19 +259,23 @@ contract OffsetHelper is OffsetHelperStorage {
      * 2. Redeems the pool token for the poorest quality TCO2 tokens available.
      * 3. Retires the TCO2 tokens.
      *
+     * @param _fromToken Symbol of the Native Token like e.g., CELO
      * @param _poolToken The address of the Toucan pool token that the
      * user wants to use, for example, NCT or BCT.
      *
      * @return tco2s An array of the TCO2 addresses that were redeemed
      * @return amounts An array of the amounts of each TCO2 that were redeemed
      */
-    function autoOffsetExactInETH(address _poolToken)
+    function autoOffsetExactInETH(
+        address _fromToken,
+        address _poolToken
+    )
         public
         payable
         returns (address[] memory tco2s, uint256[] memory amounts)
     {
         // swap MATIC for BCT / NCT
-        uint256 amountToOffset = swapExactInETH(_poolToken);
+        uint256 amountToOffset = swapExactInETH(_fromToken, _poolToken);
 
         // redeem BCT / NCT for TCO2s
         (tco2s, amounts) = autoRedeem(_poolToken, amountToOffset);
@@ -296,19 +316,17 @@ contract OffsetHelper is OffsetHelperStorage {
     }
 
     /**
-     * @notice Checks whether an address can be used by the contract.
-     * @param _erc20Address address of the ERC20 token to be checked
-     * @return True if the address can be used by the contract
+     * @notice Checks whether an address is a Toucan pool token address
+     * @param _erc20Address address of token to be checked
+     * @return True if the address is a Toucan pool token address
      */
-    function isEligible(address _erc20Address) private view returns (bool) {
-        bool isToucanContract = IToucanContractRegistry(contractRegistryAddress)
-            .checkERC20(_erc20Address);
-        if (isToucanContract) return true;
-        if (_erc20Address == eligibleTokenAddresses["BCT"]) return true;
-        if (_erc20Address == eligibleTokenAddresses["NCT"]) return true;
-        if (_erc20Address == eligibleTokenAddresses["USDC"]) return true;
-        if (_erc20Address == eligibleTokenAddresses["WETH"]) return true;
-        if (_erc20Address == eligibleTokenAddresses["WMATIC"]) return true;
+    function isRedeemable(address _erc20Address) private view returns (bool) {
+        for (uint i = 0; i < poolAddresses.length; i++) {
+            if (poolAddresses[i] == _erc20Address) {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -318,20 +336,12 @@ contract OffsetHelper is OffsetHelperStorage {
      * @return True if the specified address can be used in a swap
      */
     function isSwappable(address _erc20Address) private view returns (bool) {
-        if (_erc20Address == eligibleTokenAddresses["USDC"]) return true;
-        if (_erc20Address == eligibleTokenAddresses["WETH"]) return true;
-        if (_erc20Address == eligibleTokenAddresses["WMATIC"]) return true;
-        return false;
-    }
+        for (uint i = 0; i < paths.length; i++) {
+            if (paths[i][0] == _erc20Address) {
+                return true;
+            }
+        }
 
-    /**
-     * @notice Checks whether an address is a Toucan pool token address
-     * @param _erc20Address address of token to be checked
-     * @return True if the address is a Toucan pool token address
-     */
-    function isRedeemable(address _erc20Address) private view returns (bool) {
-        if (_erc20Address == eligibleTokenAddresses["BCT"]) return true;
-        if (_erc20Address == eligibleTokenAddresses["NCT"]) return true;
         return false;
     }
 
@@ -351,9 +361,17 @@ contract OffsetHelper is OffsetHelperStorage {
         address _fromToken,
         address _toToken,
         uint256 _toAmount
-    ) public view onlySwappable(_fromToken) onlyRedeemable(_toToken) returns (uint256) {
-        (, uint256[] memory amounts) =
-            calculateExactOutSwap(_fromToken, _toToken, _toAmount);
+    )
+        public
+        onlySwappable(_fromToken)
+        onlyRedeemable(_toToken)
+        returns (uint256)
+    {
+        (, uint256[] memory amounts) = calculateExactOutSwap(
+            _fromToken,
+            _toToken,
+            _toAmount
+        );
         return amounts[0];
     }
 
@@ -371,9 +389,17 @@ contract OffsetHelper is OffsetHelperStorage {
         address _fromToken,
         uint256 _fromAmount,
         address _toToken
-    ) public view onlySwappable(_fromToken) onlyRedeemable(_toToken) returns (uint256) {
-        (, uint256[] memory amounts) =
-            calculateExactInSwap(_fromToken, _fromAmount, _toToken);
+    )
+        public
+        onlySwappable(_fromToken)
+        onlyRedeemable(_toToken)
+        returns (uint256)
+    {
+        (, uint256[] memory amounts) = calculateExactInSwap(
+            _fromToken,
+            _fromAmount,
+            _toToken
+        );
         return amounts[amounts.length - 1];
     }
 
@@ -390,8 +416,10 @@ contract OffsetHelper is OffsetHelperStorage {
         uint256 _toAmount
     ) public onlySwappable(_fromToken) onlyRedeemable(_toToken) {
         // calculate path & amounts
-        (address[] memory path, uint256[] memory expAmounts) =
-            calculateExactOutSwap(_fromToken, _toToken, _toAmount);
+        (
+            address[] memory path,
+            uint256[] memory expAmounts
+        ) = calculateExactOutSwap(_fromToken, _toToken, _toAmount);
         uint256 amountIn = expAmounts[0];
 
         // transfer tokens
@@ -402,10 +430,10 @@ contract OffsetHelper is OffsetHelperStorage {
         );
 
         // approve router
-        IERC20(_fromToken).approve(sushiRouterAddress, amountIn);
+        IERC20(_fromToken).approve(dexRouterAddress, amountIn);
 
         // swap
-        uint256[] memory amounts = routerSushi().swapTokensForExactTokens(
+        uint256[] memory amounts = dexRouter().swapTokensForExactTokens(
             _toAmount,
             amountIn, // max. input amount
             path,
@@ -415,7 +443,7 @@ contract OffsetHelper is OffsetHelperStorage {
 
         // remove remaining approval if less input token was consumed
         if (amounts[0] < amountIn) {
-            IERC20(_fromToken).approve(sushiRouterAddress, 0);
+            IERC20(_fromToken).approve(dexRouterAddress, 0);
         }
 
         // update balances
@@ -436,9 +464,16 @@ contract OffsetHelper is OffsetHelperStorage {
         address _fromToken,
         uint256 _fromAmount,
         address _toToken
-    ) public onlySwappable(_fromToken) onlyRedeemable(_toToken) returns (uint256) {
+    )
+        public
+        onlySwappable(_fromToken)
+        onlyRedeemable(_toToken)
+        returns (uint256)
+    {
         // calculate path & amounts
-        address[] memory path = generatePath(_fromToken, _toToken);
+
+        address[] storage path = eligibleSwapPaths[_fromToken];
+        path.push(_toToken);
         uint256 len = path.length;
 
         // transfer tokens
@@ -449,10 +484,10 @@ contract OffsetHelper is OffsetHelperStorage {
         );
 
         // approve router
-        IERC20(_fromToken).safeApprove(sushiRouterAddress, _fromAmount);
+        IERC20(_fromToken).safeApprove(dexRouterAddress, _fromAmount);
 
         // swap
-        uint256[] memory amounts = routerSushi().swapExactTokensForTokens(
+        uint256[] memory amounts = dexRouter().swapExactTokensForTokens(
             _fromAmount,
             0, // min. output amount
             path,
@@ -483,15 +518,16 @@ contract OffsetHelper is OffsetHelperStorage {
      * @return amounts The amount of MATIC required in order to swap for
      * the specified amount of the pool token
      */
-    function calculateNeededETHAmount(address _toToken, uint256 _toAmount)
-        public
-        view
-        onlyRedeemable(_toToken)
-        returns (uint256)
-    {
-        address fromToken = eligibleTokenAddresses["WMATIC"];
-        (, uint256[] memory amounts) =
-            calculateExactOutSwap(fromToken, _toToken, _toAmount);
+    function calculateNeededETHAmount(
+        address _fromToken,
+        address _toToken,
+        uint256 _toAmount
+    ) public onlyRedeemable(_toToken) returns (uint256) {
+        (, uint256[] memory amounts) = calculateExactOutSwap(
+            _fromToken,
+            _toToken,
+            _toAmount
+        );
         return amounts[0];
     }
 
@@ -499,34 +535,43 @@ contract OffsetHelper is OffsetHelperStorage {
      * @notice Calculates the expected amount of Toucan Pool token that can be
      * acquired by swapping the provided amount of MATIC.
      *
-     * @param _fromMaticAmount The amount of MATIC to swap
+     * @param _fromToken Native Token like e.g., CELO
+     * @param _fromTokenAmount The amount of MATIC to swap
      * @param _toToken The address of the pool token to swap for,
      * for example, NCT or BCT
      * @return The expected amount of Pool token that can be acquired
      */
     function calculateExpectedPoolTokenForETH(
-        uint256 _fromMaticAmount,
+        address _fromToken,
+        uint256 _fromTokenAmount,
         address _toToken
-    ) public view onlyRedeemable(_toToken) returns (uint256) {
-        address fromToken = eligibleTokenAddresses["WMATIC"];
-        (, uint256[] memory amounts) =
-            calculateExactInSwap(fromToken, _fromMaticAmount, _toToken);
+    ) public onlyRedeemable(_toToken) returns (uint256) {
+        (, uint256[] memory amounts) = calculateExactInSwap(
+            _fromToken,
+            _fromTokenAmount,
+            _toToken
+        );
         return amounts[amounts.length - 1];
     }
 
     /**
      * @notice Swap MATIC for Toucan pool tokens (BCT/NCT) on SushiSwap.
      * Remaining MATIC that was not consumed by the swap is returned.
+     * @param _fromToken Native Token like e.g., CELO to swap
      * @param _toToken Token to swap for (will be held within contract)
      * @param _toAmount Amount of NCT / BCT wanted
      */
-    function swapExactOutETH(address _toToken, uint256 _toAmount) public payable onlyRedeemable(_toToken) {
-        // calculate path & amounts
-        address fromToken = eligibleTokenAddresses["WMATIC"];
-        address[] memory path = generatePath(fromToken, _toToken);
+    function swapExactOutETH(
+        address _fromToken,
+        address _toToken,
+        uint256 _toAmount
+    ) public payable onlyRedeemable(_toToken) {
+        // create path & amounts
+        address[] storage path = eligibleSwapPaths[_fromToken];
+        path.push(_toToken);
 
         // swap
-        uint256[] memory amounts = routerSushi().swapETHForExactTokens{
+        uint256[] memory amounts = dexRouter().swapETHForExactTokens{
             value: msg.value
         }(_toAmount, path, address(this), block.timestamp);
 
@@ -547,19 +592,23 @@ contract OffsetHelper is OffsetHelperStorage {
     /**
      * @notice Swap MATIC for Toucan pool tokens (BCT/NCT) on SushiSwap. All
      * provided MATIC will be swapped.
+     * @param _fromToken Native Token like e.g., CELO to swap from will be swapped for pool token
      * @param _toToken Token to swap for (will be held within contract)
      * @return Resulting amount of Toucan pool token that got acquired for the
      * swapped MATIC.
      */
-    function swapExactInETH(address _toToken) public payable onlyRedeemable(_toToken) returns (uint256) {
-        // calculate path & amounts
+    function swapExactInETH(
+        address _fromToken,
+        address _toToken
+    ) public payable onlyRedeemable(_toToken) returns (uint256) {
+        // create path & amounts
         uint256 fromAmount = msg.value;
-        address fromToken = eligibleTokenAddresses["WMATIC"];
-        address[] memory path = generatePath(fromToken, _toToken);
+        address[] storage path = eligibleSwapPaths[_fromToken];
+        path.push(_toToken);
         uint256 len = path.length;
 
         // swap
-        uint256[] memory amounts = routerSushi().swapExactETHForTokens{
+        uint256[] memory amounts = dexRouter().swapExactETHForTokens{
             value: fromAmount
         }(0, path, address(this), block.timestamp);
         uint256 amountOut = amounts[len - 1];
@@ -587,7 +636,10 @@ contract OffsetHelper is OffsetHelperStorage {
      * @notice Allow users to deposit BCT / NCT.
      * @dev Needs to be approved
      */
-    function deposit(address _erc20Addr, uint256 _amount) public onlyRedeemable(_erc20Addr) {
+    function deposit(
+        address _erc20Addr,
+        uint256 _amount
+    ) public onlyRedeemable(_erc20Addr) {
         IERC20(_erc20Addr).safeTransferFrom(msg.sender, address(this), _amount);
         balances[msg.sender][_erc20Addr] += _amount;
     }
@@ -600,8 +652,11 @@ contract OffsetHelper is OffsetHelperStorage {
      * @return tco2s An array of the TCO2 addresses that were redeemed
      * @return amounts An array of the amounts of each TCO2 that were redeemed
      */
-    function autoRedeem(address _fromToken, uint256 _amount)
-        public
+    function autoRedeem(
+        address _fromToken,
+        uint256 _amount
+    )
+        internal
         onlyRedeemable(_fromToken)
         returns (address[] memory tco2s, uint256[] memory amounts)
     {
@@ -632,9 +687,10 @@ contract OffsetHelper is OffsetHelperStorage {
      * @param _amounts The amounts to retire from each of the corresponding
      * TCO2 addresses
      */
-    function autoRetire(address[] memory _tco2s, uint256[] memory _amounts)
-        public
-    {
+    function autoRetire(
+        address[] memory _tco2s,
+        uint256[] memory _amounts
+    ) internal {
         uint256 tco2sLen = _tco2s.length;
         require(tco2sLen != 0, "Array empty");
 
@@ -666,14 +722,14 @@ contract OffsetHelper is OffsetHelperStorage {
     function calculateExactOutSwap(
         address _fromToken,
         address _toToken,
-        uint256 _toAmount)
-        internal view
-        returns (address[] memory path, uint256[] memory amounts)
-    {
-        path = generatePath(_fromToken, _toToken);
+        uint256 _toAmount
+    ) internal returns (address[] storage path, uint256[] memory amounts) {
+        // create path & calculate amounts
+        path = eligibleSwapPaths[_fromToken];
+        path.push(_toToken);
         uint256 len = path.length;
 
-        amounts = routerSushi().getAmountsIn(_toAmount, path);
+        amounts = dexRouter().getAmountsIn(_toAmount, path);
 
         // sanity check arrays
         require(len == amounts.length, "Arrays unequal");
@@ -683,41 +739,46 @@ contract OffsetHelper is OffsetHelperStorage {
     function calculateExactInSwap(
         address _fromToken,
         uint256 _fromAmount,
-        address _toToken)
-        internal view
-        returns (address[] memory path, uint256[] memory amounts)
-    {
-        path = generatePath(_fromToken, _toToken);
+        address _toToken
+    ) internal returns (address[] storage path, uint256[] memory amounts) {
+        // create path & calculate amounts
+        path = eligibleSwapPaths[_fromToken];
+        path.push(_toToken);
         uint256 len = path.length;
 
-        amounts = routerSushi().getAmountsOut(_fromAmount, path);
+        amounts = dexRouter().getAmountsOut(_fromAmount, path);
 
         // sanity check arrays
         require(len == amounts.length, "Arrays unequal");
         require(_fromAmount == amounts[0], "Input amount mismatch");
     }
 
-    function generatePath(address _fromToken, address _toToken)
-        internal
+    /**
+     * @notice Show all tokens that can be used to Offset.
+     * @param _tokens a list of token symbols that can be swapped for pool tokens
+     */
+    function showEligibleTokens()
+        public
         view
-        returns (address[] memory)
+        returns (string[] memory _tokens)
     {
-        if (_fromToken == eligibleTokenAddresses["USDC"]) {
-            address[] memory path = new address[](2);
-            path[0] = _fromToken;
-            path[1] = _toToken;
-            return path;
-        } else {
-            address[] memory path = new address[](3);
-            path[0] = _fromToken;
-            path[1] = eligibleTokenAddresses["USDC"];
-            path[2] = _toToken;
-            return path;
-        }
+        _tokens = tokenSymbolsForPaths;
     }
 
-    function routerSushi() internal view returns (IUniswapV2Router02) {
-        return IUniswapV2Router02(sushiRouterAddress);
+    /**
+     * @notice Show all pool token addresses that can be used to retired.
+     * @param _poolTokens a list of token symbols that can be retired.
+     */
+    function showEligiblePoolTokens()
+        public
+        view
+        returns (address[] memory _poolTokens)
+    {
+        _poolTokens = poolAddresses;
+    }
+
+    function dexRouter() internal view returns (IUniswapV2Router02) {
+        return IUniswapV2Router02(dexRouterAddress);
     }
 
     // ----------------------------------------
@@ -725,38 +786,56 @@ contract OffsetHelper is OffsetHelperStorage {
     // ----------------------------------------
 
     /**
-     * @notice Change or add eligible tokens and their addresses.
+     * @notice Change or add eligible paths and their addresses.
      * @param _tokenSymbol The symbol of the token to add
-     * @param _address The address of the token to add
+     * @param _path The path of the token to add
      */
-    function setEligibleTokenAddress(
+    function addPath(
         string memory _tokenSymbol,
-        address _address
+        address[] memory _path
     ) public virtual onlyOwner {
-        eligibleTokenAddresses[_tokenSymbol] = _address;
+        eligibleSwapPaths[_path[0]] = _path;
+        eligibleSwapPathsBySymbol[_tokenSymbol] = _path;
     }
 
     /**
      * @notice Delete eligible tokens stored in the contract.
      * @param _tokenSymbol The symbol of the token to remove
      */
-    function deleteEligibleTokenAddress(string memory _tokenSymbol)
-        public
-        virtual
-        onlyOwner
-    {
-        delete eligibleTokenAddresses[_tokenSymbol];
+    function removePath(string memory _tokenSymbol) public virtual onlyOwner {
+        delete eligibleSwapPaths[eligibleSwapPathsBySymbol[_tokenSymbol][0]];
+        delete eligibleSwapPathsBySymbol[_tokenSymbol];
+    }
+
+    /**
+     * @notice Change or add pool token addresses.
+     * @param _poolToken The address of the pool token to add
+     */
+    function addPoolToken(address _poolToken) public virtual onlyOwner {
+        poolAddresses.push(_poolToken);
+    }
+
+    /**
+     * @notice Delete eligible pool token addresses stored in the contract.
+     * @param _poolToken The address of the pool token to remove
+     */
+    function removePoolToken(address _poolToken) public virtual onlyOwner {
+        for (uint256 i; i < poolAddresses.length; i++) {
+            if (poolAddresses[i] == _poolToken) {
+                poolAddresses[i] = poolAddresses[poolAddresses.length - 1];
+                poolAddresses.pop();
+                break;
+            }
+        }
     }
 
     /**
      * @notice Change the TCO2 contracts registry.
      * @param _address The address of the Toucan contract registry to use
      */
-    function setToucanContractRegistry(address _address)
-        public
-        virtual
-        onlyOwner
-    {
+    function setToucanContractRegistry(
+        address _address
+    ) public virtual onlyOwner {
         contractRegistryAddress = _address;
     }
 }

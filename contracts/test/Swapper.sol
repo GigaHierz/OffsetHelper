@@ -7,12 +7,14 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 contract Swapper {
     using SafeERC20 for IERC20;
 
-    address public sushiRouterAddress =
+    address public dexRouterAddress =
         0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506;
     mapping(string => address) public tokenAddresses;
 
-    constructor(string[] memory _tokenSymbols, address[] memory _tokenAddresses)
-    {
+    constructor(
+        string[] memory _tokenSymbols,
+        address[] memory _tokenAddresses
+    ) {
         uint256 i = 0;
         while (i < _tokenSymbols.length) {
             tokenAddresses[_tokenSymbols[i]] = _tokenAddresses[i];
@@ -20,12 +22,11 @@ contract Swapper {
         }
     }
 
-    function calculateNeededETHAmount(address _toToken, uint256 _amount)
-        public
-        view
-        returns (uint256)
-    {
-        IUniswapV2Router02 routerSushi = IUniswapV2Router02(sushiRouterAddress);
+    function calculateNeededETHAmount(
+        address _toToken,
+        uint256 _amount
+    ) public view returns (uint256) {
+        IUniswapV2Router02 routerSushi = IUniswapV2Router02(dexRouterAddress);
 
         address[] memory path = generatePath(
             tokenAddresses["WMATIC"],
@@ -37,7 +38,7 @@ contract Swapper {
     }
 
     function swap(address _toToken, uint256 _amount) public payable {
-        IUniswapV2Router02 routerSushi = IUniswapV2Router02(sushiRouterAddress);
+        IUniswapV2Router02 routerSushi = IUniswapV2Router02(dexRouterAddress);
 
         address[] memory path = generatePath(
             tokenAddresses["WMATIC"],
@@ -60,11 +61,10 @@ contract Swapper {
         }
     }
 
-    function generatePath(address _fromToken, address _toToken)
-        internal
-        view
-        returns (address[] memory)
-    {
+    function generatePath(
+        address _fromToken,
+        address _toToken
+    ) internal view returns (address[] memory) {
         if (_toToken == tokenAddresses["USDC"]) {
             address[] memory path = new address[](2);
             path[0] = _fromToken;
