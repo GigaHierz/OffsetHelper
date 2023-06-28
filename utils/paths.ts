@@ -31,12 +31,12 @@ const paths: IfcAddresses = {
     ],
     WETH: [
       "0x122013fd7dF1C6F636a5bb8f03108E876548b455",
-      "0xE273Ad7ee11dCfAA87383aD5977EE1504aC07568",
+      "0x918146359264c492bd6934071c6bd31c854edbc3",
     ],
     USDC: [
       "0xef4229c8c3250C675F21BCefa42f58EfbfF6002a",
       "0x765DE816845861e75A25fCA122bb6898B8B1282a",
-      "0xE273Ad7ee11dCfAA87383aD5977EE1504aC07568",
+      "0x918146359264c492bd6934071c6bd31c854edbc3",
     ],
   },
   alfajores: {
