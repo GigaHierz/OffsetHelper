@@ -367,7 +367,7 @@ contract OffsetHelper is OffsetHelperStorage {
         onlyRedeemable(_toToken)
         returns (uint256)
     {
-        (, uint256[] memory amounts) = calculateExactOutSwap(
+        uint256[] memory amounts = calculateExactOutSwap(
             _fromToken,
             _toToken,
             _toAmount
@@ -391,14 +391,15 @@ contract OffsetHelper is OffsetHelperStorage {
         address _toToken
     )
         public
+        view
         onlySwappable(_fromToken)
         onlyRedeemable(_toToken)
         returns (uint256)
     {
-        (, uint256[] memory amounts) = calculateExactInSwap(
+        uint256[] memory amounts = calculateExactInSwap(
             _fromToken,
-            _fromAmount,
-            _toToken
+            _toToken,
+            _fromAmount
         );
         return amounts[amounts.length - 1];
     }
@@ -416,10 +417,12 @@ contract OffsetHelper is OffsetHelperStorage {
         uint256 _toAmount
     ) public onlySwappable(_fromToken) onlyRedeemable(_toToken) {
         // calculate path & amounts
-        (
-            address[] memory path,
-            uint256[] memory expAmounts
-        ) = calculateExactOutSwap(_fromToken, _toToken, _toAmount);
+        address[] storage path = calculatePath(_fromToken, _toToken);
+        uint256[] memory expAmounts = calculateExactOutSwap(
+            _fromToken,
+            _toToken,
+            _toAmount
+        );
         uint256 amountIn = expAmounts[0];
 
         // transfer tokens
@@ -523,7 +526,7 @@ contract OffsetHelper is OffsetHelperStorage {
         address _toToken,
         uint256 _toAmount
     ) public onlyRedeemable(_toToken) returns (uint256) {
-        (, uint256[] memory amounts) = calculateExactOutSwap(
+        uint256[] memory amounts = calculateExactOutSwap(
             _fromToken,
             _toToken,
             _toAmount
@@ -546,10 +549,10 @@ contract OffsetHelper is OffsetHelperStorage {
         uint256 _fromTokenAmount,
         address _toToken
     ) public onlyRedeemable(_toToken) returns (uint256) {
-        (, uint256[] memory amounts) = calculateExactInSwap(
+        uint256[] memory amounts = calculateExactInSwap(
             _fromToken,
-            _fromTokenAmount,
-            _toToken
+            _toToken,
+            _fromTokenAmount
         );
         return amounts[amounts.length - 1];
     }
@@ -723,10 +726,9 @@ contract OffsetHelper is OffsetHelperStorage {
         address _fromToken,
         address _toToken,
         uint256 _toAmount
-    ) internal returns (address[] storage path, uint256[] memory amounts) {
+    ) public returns (uint256[] memory amounts) {
         // create path & calculate amounts
-        path = eligibleSwapPaths[_fromToken];
-        path.push(_toToken);
+        address[] storage path = calculatePath(_fromToken, _toToken);
         uint256 len = path.length;
 
         amounts = dexRouter().getAmountsIn(_toAmount, path);
@@ -738,12 +740,11 @@ contract OffsetHelper is OffsetHelperStorage {
 
     function calculateExactInSwap(
         address _fromToken,
-        uint256 _fromAmount,
-        address _toToken
-    ) internal returns (address[] storage path, uint256[] memory amounts) {
+        address _toToken,
+        uint256 _fromAmount
+    ) internal returns (uint256[] memory amounts) {
         // create path & calculate amounts
-        path = eligibleSwapPaths[_fromToken];
-        path.push(_toToken);
+        address[] storage path = calculatePath(_fromToken, _toToken);
         uint256 len = path.length;
 
         amounts = dexRouter().getAmountsOut(_fromAmount, path);
@@ -775,6 +776,19 @@ contract OffsetHelper is OffsetHelperStorage {
         returns (address[] memory _poolTokens)
     {
         _poolTokens = poolAddresses;
+    }
+
+    /**
+     * @notice Show all pool token addresses that can be used to retired.
+     * @param _fromToken a list of token symbols that can be retired.
+     * @param _toToken a list of token symbols that can be retired.
+     */
+    function calculatePath(
+        address _fromToken,
+        address _toToken
+    ) internal view returns (address[] storage path) {
+        path = eligibleSwapPaths[_fromToken];
+        path.push(_toToken);
     }
 
     function dexRouter() internal view returns (IUniswapV2Router02) {
