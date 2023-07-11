@@ -96,14 +96,14 @@ contract OffsetHelper is OffsetHelperStorage {
      * @notice Emitted upon successful redemption of TCO2 tokens from a Toucan
      * pool token such as BCT or NCT.
      *
-     * @param who The sender of the transaction
+     * @param sender The sender of the transaction
      * @param poolToken The address of the Toucan pool token used in the
      * redemption, for example, NCT or BCT
      * @param tco2s An array of the TCO2 addresses that were redeemed
      * @param amounts An array of the amounts of each TCO2 that were redeemed
      */
     event Redeemed(
-        address who,
+        address sender,
         address poolToken,
         address[] tco2s,
         uint256[] amounts
@@ -391,7 +391,6 @@ contract OffsetHelper is OffsetHelperStorage {
         address _toToken
     )
         public
-        view
         onlySwappable(_fromToken)
         onlyRedeemable(_toToken)
         returns (uint256)
@@ -726,7 +725,7 @@ contract OffsetHelper is OffsetHelperStorage {
         address _fromToken,
         address _toToken,
         uint256 _toAmount
-    ) public returns (uint256[] memory amounts) {
+    ) internal returns (uint256[] memory amounts) {
         // create path & calculate amounts
         address[] storage path = calculatePath(_fromToken, _toToken);
         uint256 len = path.length;
@@ -786,7 +785,7 @@ contract OffsetHelper is OffsetHelperStorage {
     function calculatePath(
         address _fromToken,
         address _toToken
-    ) internal view returns (address[] storage path) {
+    ) internal returns (address[] storage path) {
         path = eligibleSwapPaths[_fromToken];
         path.push(_toToken);
     }
