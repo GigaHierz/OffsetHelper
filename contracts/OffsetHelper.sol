@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2022 Toucan Labs
-//
 // SPDX-License-Identifier: GPL-3.0
 
 pragma solidity ^0.8.0;
@@ -19,7 +18,7 @@ import "./interfaces/IToucanContractRegistry.sol";
  * Retiring carbon tokens requires multiple steps and interactions with
  * Toucan Protocol's main contracts:
  * 1. Obtain a Toucan pool token such as BCT or NCT (by performing a token
- *    swap).
+ *    swap on a DEX).
  * 2. Redeem the pool token for a TCO2 token.
  * 3. Retire the TCO2 token.
  *
@@ -28,9 +27,9 @@ import "./interfaces/IToucanContractRegistry.sol";
  * - `autoOffsetPoolToken()` if the user already owns a Toucan pool
  *   token such as BCT or NCT,
  * - `autoOffsetExactOutETH()` if the user would like to perform a retirement
- *   using MATIC, specifying the exact amount of TCO2s to retire,
+ *   using native tokens e.g., MATIC, specifying the exact amount of TCO2s to retire,
  * - `autoOffsetExactInETH()` if the user would like to perform a retirement
- *   using MATIC, swapping all sent MATIC into TCO2s,
+ *   using native tokens, swapping all sent native tokens into TCO2s,
  * - `autoOffsetExactOutToken()` if the user would like to perform a retirement
  *   using an ERC20 token (USDC, WETH or WMATIC), specifying the exact amount
  *   of TCO2s to retire,
@@ -47,7 +46,7 @@ import "./interfaces/IToucanContractRegistry.sol";
  * There are two `view` helper functions `calculateNeededETHAmount()` and
  * `calculateNeededTokenAmount()` that should be called before using
  * `autoOffsetExactOutETH()` and `autoOffsetExactOutToken()`, to determine how
- * much MATIC, respectively how much of the ERC20 token must be sent to the
+ * much native tokens e.g., MATIC, respectively how much of the ERC20 token must be sent to the
  * `OffsetHelper` contract in order to retire the specified amount of carbon.
  *
  * The two `view` helper functions `calculateExpectedPoolTokenForETH()` and
@@ -124,7 +123,7 @@ contract OffsetHelper is OffsetHelperStorage {
     /**
      * @notice Retire carbon credits using the lowest quality (oldest) TCO2
      * tokens available from the specified Toucan token pool by sending ERC20
-     * tokens (USDC, WETH, WMATIC). Use `calculateNeededTokenAmount` first in
+     * tokens (cUSD, USDC, WETH, WMATIC). Use `calculateNeededTokenAmount` first in
      * order to find out how much of the ERC20 token is required to retire the
      * specified quantity of TCO2.
      *
@@ -139,8 +138,8 @@ contract OffsetHelper is OffsetHelperStorage {
      * TCO2s there are no fees and you receive exactly 1 TCO2 token for 1 pool
      * token.
      *
-     * @param _depositedToken The address of the ERC20 token that the user sends
-     * (must be one of USDC, WETH, WMATIC)
+     * @param _fromToken The address of the ERC20 token that the user sends
+     * (e.g., cUSD, cUSD, USDC, WETH, WMATIC)
      * @param _poolToken The address of the Toucan pool token that the
      * user wants to use, for example, NCT or BCT
      * @param _amountToOffset The amount of TCO2 to offset
@@ -149,12 +148,12 @@ contract OffsetHelper is OffsetHelperStorage {
      * @return amounts An array of the amounts of each TCO2 that were redeemed
      */
     function autoOffsetExactOutToken(
-        address _depositedToken,
+        address _fromToken,
         address _poolToken,
         uint256 _amountToOffset
     ) public returns (address[] memory tco2s, uint256[] memory amounts) {
         // swap input token for BCT / NCT
-        swapExactOutToken(_depositedToken, _poolToken, _amountToOffset);
+        swapExactOutToken(_fromToken, _poolToken, _amountToOffset);
 
         // redeem BCT / NCT for TCO2s
         (tco2s, amounts) = autoRedeem(_poolToken, _amountToOffset);
@@ -166,7 +165,7 @@ contract OffsetHelper is OffsetHelperStorage {
     /**
      * @notice Retire carbon credits using the lowest quality (oldest) TCO2
      * tokens available from the specified Toucan token pool by sending ERC20
-     * tokens (USDC, WETH, WMATIC). All provided token is consumed for
+     * tokens (cUSD, USDC, WETH, WMATIC). All provided token is consumed for
      * offsetting.
      *
      * This function:
@@ -181,19 +180,19 @@ contract OffsetHelper is OffsetHelperStorage {
      * token.
      *
      * @param _fromToken The address of the ERC20 token that the user sends
-     * (must be one of USDC, WETH, WMATIC)
-     * @param _amountToSwap The amount of ERC20 token to swap into Toucan pool
-     * token. Full amount will be used for offsetting.
+     * (e.g., cUSD, cUSD, USDC, WETH, WMATIC)
      * @param _poolToken The address of the Toucan pool token that the
      * user wants to use, for example, NCT or BCT
+     * @param _amountToSwap The amount of ERC20 token to swap into Toucan pool
+     * token. Full amount will be used for offsetting.
      *
      * @return tco2s An array of the TCO2 addresses that were redeemed
      * @return amounts An array of the amounts of each TCO2 that were redeemed
      */
     function autoOffsetExactInToken(
         address _fromToken,
-        uint256 _amountToSwap,
-        address _poolToken
+        address _poolToken,
+        uint256 _amountToSwap
     ) public returns (address[] memory tco2s, uint256[] memory amounts) {
         // swap input token for BCT / NCT
         uint256 amountToOffset = swapExactInToken(
@@ -211,20 +210,21 @@ contract OffsetHelper is OffsetHelperStorage {
 
     /**
      * @notice Retire carbon credits using the lowest quality (oldest) TCO2
-     * tokens available from the specified Toucan token pool by sending MATIC.
+     * tokens available from the specified Toucan token pool by sending native tokens e.g., MATIC.
      * Use `calculateNeededETHAmount()` first in order to find out how much
-     * MATIC is required to retire the specified quantity of TCO2.
+     * native tokens are required to retire the specified quantity of TCO2.
      *
      * This function:
      * 1. Swaps the Matic sent to the contract for the specified pool token.
      * 2. Redeems the pool token for the poorest quality TCO2 tokens available.
      * 3. Retires the TCO2 tokens.
      *
-     * @dev If the user sends much MATIC, the leftover amount will be sent back
+     * @dev If the user sends too much native tokens , the leftover amount will be sent back
      * to the user.
      *
-     * @param _poolToken The address of the Toucan pool token that the
-     * user wants to use, for example, NCT or BCT.
+     * @param _fromToken The address of the native token that the user sends
+     * @param _poolToken The address of the pool token to swap for,
+     * for example, NCT or BCT
      * @param _amountToOffset The amount of TCO2 to offset.
      *
      * @return tco2s An array of the TCO2 addresses that were redeemed
@@ -239,7 +239,7 @@ contract OffsetHelper is OffsetHelperStorage {
         payable
         returns (address[] memory tco2s, uint256[] memory amounts)
     {
-        // swap MATIC for BCT / NCT
+        // swap native tokens  for BCT / NCT
         swapExactOutETH(_fromToken, _poolToken, _amountToOffset);
 
         // redeem BCT / NCT for TCO2s
@@ -251,17 +251,17 @@ contract OffsetHelper is OffsetHelperStorage {
 
     /**
      * @notice Retire carbon credits using the lowest quality (oldest) TCO2
-     * tokens available from the specified Toucan token pool by sending MATIC.
-     * All provided MATIC is consumed for offsetting.
+     * tokens available from the specified Toucan token pool by sending native tokens e.g., MATIC.
+     * All provided native tokens  is consumed for offsetting.
      *
      * This function:
      * 1. Swaps the Matic sent to the contract for the specified pool token.
      * 2. Redeems the pool token for the poorest quality TCO2 tokens available.
      * 3. Retires the TCO2 tokens.
      *
-     * @param _fromToken Symbol of the Native Token like e.g., CELO
-     * @param _poolToken The address of the Toucan pool token that the
-     * user wants to use, for example, NCT or BCT.
+     * @param _fromToken Symbol of the Native Token like e.g., WMATIC
+     * @param _poolToken The address of the pool token to swap for,
+     * for example, NCT or BCT
      *
      * @return tco2s An array of the TCO2 addresses that were redeemed
      * @return amounts An array of the amounts of each TCO2 that were redeemed
@@ -274,7 +274,7 @@ contract OffsetHelper is OffsetHelperStorage {
         payable
         returns (address[] memory tco2s, uint256[] memory amounts)
     {
-        // swap MATIC for BCT / NCT
+        // swap native tokens  for BCT / NCT
         uint256 amountToOffset = swapExactInETH(_fromToken, _poolToken);
 
         // redeem BCT / NCT for TCO2s
@@ -294,8 +294,8 @@ contract OffsetHelper is OffsetHelperStorage {
      *
      * Note: The client must approve the pool token that is sent.
      *
-     * @param _poolToken The address of the Toucan pool token that the
-     * user wants to use, for example, NCT or BCT.
+     * @param _poolToken The address of the pool token to swap for,
+     * for example, NCT or BCT
      * @param _amountToOffset The amount of TCO2 to offset.
      *
      * @return tco2s An array of the TCO2 addresses that were redeemed
@@ -351,7 +351,7 @@ contract OffsetHelper is OffsetHelperStorage {
      * example, BCT or NCT.
      *
      * @param _fromToken The address of the ERC20 token used for the swap
-     * @param _toToken The address of the pool token to swap for,
+     * @param _poolToken The address of the pool token to swap for,
      * for example, NCT or BCT
      * @param _toAmount The desired amount of pool token to receive
      * @return amountsIn The amount of the ERC20 token required in order to
@@ -359,18 +359,18 @@ contract OffsetHelper is OffsetHelperStorage {
      */
     function calculateNeededTokenAmount(
         address _fromToken,
-        address _toToken,
+        address _poolToken,
         uint256 _toAmount
     )
         public
         view
         onlySwappable(_fromToken)
-        onlyRedeemable(_toToken)
+        onlyRedeemable(_poolToken)
         returns (uint256)
     {
         uint256[] memory amounts = calculateExactOutSwap(
             _fromToken,
-            _toToken,
+            _poolToken,
             _toAmount
         );
         return amounts[0];
@@ -381,25 +381,25 @@ contract OffsetHelper is OffsetHelperStorage {
      * acquired by swapping the provided amount of ERC20 token.
      *
      * @param _fromToken The address of the ERC20 token used for the swap
-     * @param _fromAmount The amount of ERC20 token to swap
-     * @param _toToken The address of the pool token to swap for,
+     * @param _poolToken The address of the pool token to swap for,
      * for example, NCT or BCT
+     * @param _fromAmount The amount of ERC20 token to swap
      * @return The expected amount of Pool token that can be acquired
      */
     function calculateExpectedPoolTokenForToken(
         address _fromToken,
-        address _toToken,
+        address _poolToken,
         uint256 _fromAmount
     )
         public
         view
         onlySwappable(_fromToken)
-        onlyRedeemable(_toToken)
+        onlyRedeemable(_poolToken)
         returns (uint256)
     {
         uint256[] memory amounts = calculateExactInSwap(
             _fromToken,
-            _toToken,
+            _poolToken,
             _fromAmount
         );
         return amounts[amounts.length - 1];
@@ -408,20 +408,21 @@ contract OffsetHelper is OffsetHelperStorage {
     /**
      * @notice Swap eligible ERC20 tokens for Toucan pool tokens (BCT/NCT) on SushiSwap
      * @dev Needs to be approved on the client side
-     * @param _fromToken The ERC20 oken to deposit and swap
-     * @param _toToken The token to swap for (will be held within contract)
+     * @param _fromToken The address of the ERC20 token used for the swap
+     * @param _poolToken The address of the pool token to swap for,
+     * for example, NCT or BCT
      * @param _toAmount The required amount of the Toucan pool token (NCT/BCT)
      */
     function swapExactOutToken(
         address _fromToken,
-        address _toToken,
+        address _poolToken,
         uint256 _toAmount
-    ) public onlySwappable(_fromToken) onlyRedeemable(_toToken) {
+    ) public onlySwappable(_fromToken) onlyRedeemable(_poolToken) {
         // calculate path & amounts
-        address[] memory path = calculatePath(_fromToken, _toToken);
+        address[] memory path = calculatePath(_fromToken, _poolToken);
         uint256[] memory expAmounts = calculateExactOutSwap(
             _fromToken,
-            _toToken,
+            _poolToken,
             _toAmount
         );
         uint256 amountIn = expAmounts[0];
@@ -451,32 +452,33 @@ contract OffsetHelper is OffsetHelperStorage {
         }
 
         // update balances
-        balances[msg.sender][_toToken] += _toAmount;
+        balances[msg.sender][_poolToken] += _toAmount;
     }
 
     /**
      * @notice Swap eligible ERC20 tokens for Toucan pool tokens (BCT/NCT) on
      * SushiSwap. All provided ERC20 tokens will be swapped.
      * @dev Needs to be approved on the client side.
-     * @param _fromToken The ERC20 token to deposit and swap
+     * @param _fromToken The address of the ERC20 token used for the swap
+     * @param _poolToken The address of the pool token to swap for,
      * @param _fromAmount The amount of ERC20 token to swap
-     * @param _toToken The Toucan token to swap for (will be held within contract)
+     * for example, NCT or BCT
      * @return Resulting amount of Toucan pool token that got acquired for the
      * swapped ERC20 tokens.
      */
     function swapExactInToken(
         address _fromToken,
-        address _toToken,
+        address _poolToken,
         uint256 _fromAmount
     )
         public
         onlySwappable(_fromToken)
-        onlyRedeemable(_toToken)
+        onlyRedeemable(_poolToken)
         returns (uint256)
     {
         // calculate path & amounts
 
-        address[] memory path = calculatePath(_fromToken, _toToken);
+        address[] memory path = calculatePath(_fromToken, _poolToken);
 
         uint256 len = path.length;
 
@@ -501,35 +503,35 @@ contract OffsetHelper is OffsetHelperStorage {
         uint256 amountOut = amounts[len - 1];
 
         // update balances
-        balances[msg.sender][_toToken] += amountOut;
+        balances[msg.sender][_poolToken] += amountOut;
 
         return amountOut;
     }
 
-    // apparently I need a fallback and a receive method to fix the situation where transfering dust MATIC
-    // in the MATIC to token swap fails
+    // apparently I need a fallback and a receive method to fix the situation where transfering dust native tokens
+    // in the native tokens  to token swap fails
     fallback() external payable {}
 
     receive() external payable {}
 
     /**
-     * @notice Return how much MATIC is required in order to swap for the
+     * @notice Return how much native tokens e.g, MATIC is required in order to swap for the
      * desired amount of a Toucan pool token, for example, BCT or NCT.
      *
-     * @param _toToken The address of the pool token to swap for, for
+     * @param _poolToken The address of the pool token to swap for, for
      * example, NCT or BCT
      * @param _toAmount The desired amount of pool token to receive
-     * @return amounts The amount of MATIC required in order to swap for
+     * @return amounts The amount of native tokens  required in order to swap for
      * the specified amount of the pool token
      */
     function calculateNeededETHAmount(
         address _fromToken,
-        address _toToken,
+        address _poolToken,
         uint256 _toAmount
-    ) public view onlyRedeemable(_toToken) returns (uint256) {
+    ) public view onlyRedeemable(_poolToken) returns (uint256) {
         uint256[] memory amounts = calculateExactOutSwap(
             _fromToken,
-            _toToken,
+            _poolToken,
             _toAmount
         );
         return amounts[0];
@@ -537,41 +539,42 @@ contract OffsetHelper is OffsetHelperStorage {
 
     /**
      * @notice Calculates the expected amount of Toucan Pool token that can be
-     * acquired by swapping the provided amount of MATIC.
+     * acquired by swapping the provided amount of native tokens e.g., MATIC.
      *
-     * @param _fromToken Native Token like e.g., CELO
-     * @param _fromTokenAmount The amount of MATIC to swap
-     * @param _toToken The address of the pool token to swap for,
+     * @param _fromToken Native Token like e.g., MATIC
+     * @param _fromTokenAmount The amount of native tokens  to swap
+     * @param _poolToken The address of the pool token to swap for,
      * for example, NCT or BCT
      * @return The expected amount of Pool token that can be acquired
      */
     function calculateExpectedPoolTokenForETH(
         address _fromToken,
-        address _toToken,
+        address _poolToken,
         uint256 _fromTokenAmount
-    ) public view onlyRedeemable(_toToken) returns (uint256) {
+    ) public view onlyRedeemable(_poolToken) returns (uint256) {
         uint256[] memory amounts = calculateExactInSwap(
             _fromToken,
-            _toToken,
+            _poolToken,
             _fromTokenAmount
         );
         return amounts[amounts.length - 1];
     }
 
     /**
-     * @notice Swap MATIC for Toucan pool tokens (BCT/NCT) on SushiSwap.
-     * Remaining MATIC that was not consumed by the swap is returned.
+     * @notice Swap native tokens e.g., MATIC for Toucan pool tokens (BCT/NCT) on SushiSwap.
+     * Remaining native tokens  that was not consumed by the swap is returned.
      * @param _fromToken Native Token like e.g., CELO to swap
-     * @param _toToken Token to swap for (will be held within contract)
-     * @param _toAmount Amount of NCT / BCT wanted
+     * @param _poolToken The address of the pool token to swap for,
+     * for example, NCT or BCT
+     * @param _toAmount The required amount of the Toucan pool token (NCT/BCT)
      */
     function swapExactOutETH(
         address _fromToken,
-        address _toToken,
+        address _poolToken,
         uint256 _toAmount
-    ) public payable onlyRedeemable(_toToken) {
+    ) public payable onlyRedeemable(_poolToken) {
         // create path & amounts
-        address[] memory path = calculatePath(_fromToken, _toToken);
+        address[] memory path = calculatePath(_fromToken, _poolToken);
 
         // swap
         uint256[] memory amounts = dexRouter().swapETHForExactTokens{
@@ -589,24 +592,25 @@ contract OffsetHelper is OffsetHelperStorage {
         }
 
         // update balances
-        balances[msg.sender][_toToken] += _toAmount;
+        balances[msg.sender][_poolToken] += _toAmount;
     }
 
     /**
-     * @notice Swap MATIC for Toucan pool tokens (BCT/NCT) on SushiSwap. All
-     * provided MATIC will be swapped.
+     * @notice Swap native tokens e.g., MATIC for Toucan pool tokens (BCT/NCT) on SushiSwap. All
+     * provided native tokens  will be swapped.
      * @param _fromToken Native Token like e.g., CELO to swap from will be swapped for pool token
-     * @param _toToken Token to swap for (will be held within contract)
+     * @param _poolToken The address of the pool token to swap for,
+     * for example, NCT or BCT
      * @return Resulting amount of Toucan pool token that got acquired for the
-     * swapped MATIC.
+     * swapped native tokens .
      */
     function swapExactInETH(
         address _fromToken,
-        address _toToken
-    ) public payable onlyRedeemable(_toToken) returns (uint256) {
+        address _poolToken
+    ) public payable onlyRedeemable(_poolToken) returns (uint256) {
         // create path & amounts
         uint256 fromAmount = msg.value;
-        address[] memory path = calculatePath(_fromToken, _toToken);
+        address[] memory path = calculatePath(_fromToken, _poolToken);
 
         uint256 len = path.length;
 
@@ -617,7 +621,7 @@ contract OffsetHelper is OffsetHelperStorage {
         uint256 amountOut = amounts[len - 1];
 
         // update balances
-        balances[msg.sender][_toToken] += amountOut;
+        balances[msg.sender][_poolToken] += amountOut;
 
         return amountOut;
     }
@@ -724,11 +728,11 @@ contract OffsetHelper is OffsetHelperStorage {
 
     function calculateExactOutSwap(
         address _fromToken,
-        address _toToken,
+        address _poolToken,
         uint256 _toAmount
     ) internal view returns (uint256[] memory amounts) {
         // create path & calculate amounts
-        address[] memory path = calculatePath(_fromToken, _toToken);
+        address[] memory path = calculatePath(_fromToken, _poolToken);
         uint256 len = path.length;
 
         amounts = dexRouter().getAmountsIn(_toAmount, path);
@@ -740,11 +744,11 @@ contract OffsetHelper is OffsetHelperStorage {
 
     function calculateExactInSwap(
         address _fromToken,
-        address _toToken,
+        address _poolToken,
         uint256 _fromAmount
     ) internal view returns (uint256[] memory amounts) {
         // create path & calculate amounts
-        address[] memory path = calculatePath(_fromToken, _toToken);
+        address[] memory path = calculatePath(_fromToken, _poolToken);
         uint256 len = path.length;
 
         amounts = dexRouter().getAmountsOut(_fromAmount, path);
@@ -830,7 +834,7 @@ contract OffsetHelper is OffsetHelperStorage {
     /**
      * @notice Change or add eligible paths and their addresses.
      * @param _tokenSymbol The symbol of the token to add
-     * @param _path The path of the token to add
+     * @param _path The path of the path to add
      */
     function addPath(
         string memory _tokenSymbol,
@@ -842,7 +846,7 @@ contract OffsetHelper is OffsetHelperStorage {
 
     /**
      * @notice Delete eligible tokens stored in the contract.
-     * @param _tokenSymbol The symbol of the token to remove
+     * @param _tokenSymbol The symbol of the path to remove
      */
     function removePath(string memory _tokenSymbol) public virtual onlyOwner {
         delete eligibleSwapPaths[eligibleSwapPathsBySymbol[_tokenSymbol][0]];

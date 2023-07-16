@@ -19,7 +19,7 @@ Find all contract addresses [here](https://app.toucan.earth/contracts)
 
 The `OffsetHelper` contract implements helper functions that simplify the carbon offsetting (retirement) process.
 
-See [./docs/OffsetHelper.md](./docs/OffsetHelper.md) for detailed documentation.
+See [`./docs/OffsetHelper.md`](./docs/OffsetHelper.md) for detailed documentation.
 
 ### Development
 
@@ -30,8 +30,8 @@ See [./docs/OffsetHelper.md](./docs/OffsetHelper.md) for detailed documentation.
    yarn
    ```
 2. Copy `.env.example` to `.env` and modify values of the required environment variables:
-   1. `POLYGON_URL`/`MUMBAI_URL` to specify custom RPC endpoints for Polygon Mainnet, respectively, the Mumbai Testnet.
-   2. `PRIVATE_KEY` and `POLYGONSCAN_API_KEY` in order to deploy contract and publish source code on [polygonscan](https://polygonscan.com). You will be able to find the private key in your MetaMask wallet like [this](https://support.metamask.io/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key). If you are developing make sure that you are using a special wallet only for development that doesn't contain real life funds. You can create your `POLYGONSCAN_API_KEY` on [Alchemy](https://www.alchemy.com). 
+   1. `RPC_ENDPOINT` to specify custom RPC endpoints for Celo, Alfajores, Polygon Mainnet, respectively, the Mumbai Testnet.
+   2. `PRIVATE_KEY` and `BLOCK_EXPLORER_API_KEY` in order to deploy contract and publish source code on [polygonscan](https://polygonscan.com). You will be able to find the private key in your MetaMask wallet like [this](https://support.metamask.io/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key). If you are developing make sure that you are using a special wallet only for development that doesn't contain real life funds. You can create your `BLOCK_EXPLORER_API_KEY` on [Alchemy](https://www.alchemy.com).
 
 ## Commands
 
@@ -49,5 +49,12 @@ yarn doc
 yarn hardhat deploy --network <network>
 
 # verify the contract
-yarn hardhat verify:offsetHelper --network mumbai --address <address where Offset Helper was deployed>
+yarn hardhat verify:offsetHelper --network <network> --address <address where Offset Helper was deployed>
 ```
+
+## Deplyoing the OffsetHelper on a new Chain
+
+- add all addresses to the `./utils/addresses.ts`
+- add DEX Router address for the deployment to the `OffsetHelperStorage.sol` contract.
+- add the Toucan [contractRegistryAddress](https://app.toucan.earth/contracts) to the `OffsetHelperStorage.sol` contract.
+- add all swap path you want to add for the chain to the `utils/paths.ts`file.
