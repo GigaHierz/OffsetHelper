@@ -817,8 +817,8 @@ contract OffsetHelper is OffsetHelperStorage {
             path[0] = _fromToken;
             path[1] = eligibleSwapPaths[_fromToken][1];
             path[2] = eligibleSwapPaths[_fromToken][2];
-            path[2] = eligibleSwapPaths[_fromToken][3];
-            path[2] = _toToken;
+            path[3] = eligibleSwapPaths[_fromToken][3];
+            path[4] = _toToken;
             return path;
         }
     }

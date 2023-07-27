@@ -14,11 +14,7 @@ contract Swapper {
     mapping(address => address[]) public eligibleSwapPaths;
     address public swapToken;
 
-    constructor(
-        string[] memory _tokenSymbols,
-        address[][] memory _paths,
-        address _swapToken
-    ) {
+    constructor(address[][] memory _paths, address _swapToken) {
         swapToken = _swapToken;
         uint256 i = 0;
         uint256 eligibleSwapPathsLen = _paths.length;
@@ -28,15 +24,19 @@ contract Swapper {
         }
     }
 
-    function calculateNeededETHAmount(
+    function calculateNeededTokenAmount(
         address _toToken,
         uint256 _amount
     ) public view returns (uint256) {
         IUniswapV2Router02 dexRouter = IUniswapV2Router02(dexRouterAddress);
 
         address[] memory path = generatePath(swapToken, _toToken);
+        uint256 len = path.length;
 
         uint256[] memory amounts = dexRouter.getAmountsIn(_amount, path);
+        // sanity check arrays
+        require(len == amounts.length, "Arrays unequal");
+        require(_amount == amounts[len - 1], "Output amount mismatch");
         return amounts[0];
     }
 
@@ -91,8 +91,8 @@ contract Swapper {
             path[0] = _fromToken;
             path[1] = eligibleSwapPaths[_fromToken][1];
             path[2] = eligibleSwapPaths[_fromToken][2];
-            path[2] = eligibleSwapPaths[_fromToken][3];
-            path[2] = _toToken;
+            path[3] = eligibleSwapPaths[_fromToken][3];
+            path[4] = _toToken;
             return path;
         }
     }
