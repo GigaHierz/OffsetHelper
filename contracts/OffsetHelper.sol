@@ -771,7 +771,7 @@ contract OffsetHelper is OffsetHelperStorage {
     }
 
     /**
-     * @notice Show all pool token addresses that can be used to retired.
+     * @notice Show all pool token addresses that can be used to retire.
      * @param _poolTokens a list of token symbols that can be retired.
      */
     function showEligiblePoolTokens()
@@ -842,6 +842,7 @@ contract OffsetHelper is OffsetHelperStorage {
     ) public virtual onlyOwner {
         eligibleSwapPaths[_path[0]] = _path;
         eligibleSwapPathsBySymbol[_tokenSymbol] = _path;
+        tokenSymbolsForPaths.push(_tokenSymbol);
     }
 
     /**
