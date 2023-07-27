@@ -8,16 +8,22 @@ contract Swapper {
     using SafeERC20 for IERC20;
 
     address public dexRouterAddress =
-        0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506;
-    mapping(string => address) public tokenAddresses;
+        0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506; // SushiSwap
+    // 0x7D28570135A2B1930F331c507F65039D4937f66c; // Ubeswap
+    // 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D; // Uniswap;
+    mapping(address => address[]) public eligibleSwapPaths;
+    address public swapToken;
 
     constructor(
         string[] memory _tokenSymbols,
-        address[] memory _tokenAddresses
+        address[][] memory _paths,
+        address _swapToken
     ) {
+        swapToken = _swapToken;
         uint256 i = 0;
-        while (i < _tokenSymbols.length) {
-            tokenAddresses[_tokenSymbols[i]] = _tokenAddresses[i];
+        uint256 eligibleSwapPathsLen = _paths.length;
+        while (i < eligibleSwapPathsLen) {
+            eligibleSwapPaths[_paths[i][0]] = _paths[i];
             i += 1;
         }
     }
@@ -26,26 +32,20 @@ contract Swapper {
         address _toToken,
         uint256 _amount
     ) public view returns (uint256) {
-        IUniswapV2Router02 routerSushi = IUniswapV2Router02(dexRouterAddress);
+        IUniswapV2Router02 dexRouter = IUniswapV2Router02(dexRouterAddress);
 
-        address[] memory path = generatePath(
-            tokenAddresses["WMATIC"],
-            _toToken
-        );
+        address[] memory path = generatePath(swapToken, _toToken);
 
-        uint256[] memory amounts = routerSushi.getAmountsIn(_amount, path);
+        uint256[] memory amounts = dexRouter.getAmountsIn(_amount, path);
         return amounts[0];
     }
 
     function swap(address _toToken, uint256 _amount) public payable {
-        IUniswapV2Router02 routerSushi = IUniswapV2Router02(dexRouterAddress);
+        IUniswapV2Router02 dexRouter = IUniswapV2Router02(dexRouterAddress);
 
-        address[] memory path = generatePath(
-            tokenAddresses["WMATIC"],
-            _toToken
-        );
+        address[] memory path = generatePath(swapToken, _toToken);
 
-        uint256[] memory amounts = routerSushi.swapETHForExactTokens{
+        uint256[] memory amounts = dexRouter.swapETHForExactTokens{
             value: msg.value
         }(_amount, path, address(this), block.timestamp);
 
@@ -64,16 +64,34 @@ contract Swapper {
     function generatePath(
         address _fromToken,
         address _toToken
-    ) internal view returns (address[] memory) {
-        if (_toToken == tokenAddresses["USDC"]) {
-            address[] memory path = new address[](2);
+    ) internal view returns (address[] memory path) {
+        uint256 len = eligibleSwapPaths[_fromToken].length;
+        if (len == 1 || eligibleSwapPaths[_fromToken][1] == _toToken) {
+            path = new address[](2);
             path[0] = _fromToken;
             path[1] = _toToken;
             return path;
-        } else {
-            address[] memory path = new address[](3);
+        }
+        if (len == 2 || eligibleSwapPaths[_fromToken][2] == _toToken) {
+            path = new address[](3);
             path[0] = _fromToken;
-            path[1] = tokenAddresses["USDC"];
+            path[1] = eligibleSwapPaths[_fromToken][1];
+            path[2] = _toToken;
+            return path;
+        }
+        if (len == 3 || eligibleSwapPaths[_fromToken][3] == _toToken) {
+            path = new address[](3);
+            path[0] = _fromToken;
+            path[1] = eligibleSwapPaths[_fromToken][1];
+            path[2] = eligibleSwapPaths[_fromToken][2];
+            path[3] = _toToken;
+            return path;
+        } else {
+            path = new address[](4);
+            path[0] = _fromToken;
+            path[1] = eligibleSwapPaths[_fromToken][1];
+            path[2] = eligibleSwapPaths[_fromToken][2];
+            path[2] = eligibleSwapPaths[_fromToken][3];
             path[2] = _toToken;
             return path;
         }

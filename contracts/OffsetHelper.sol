@@ -419,7 +419,7 @@ contract OffsetHelper is OffsetHelperStorage {
         uint256 _toAmount
     ) public onlySwappable(_fromToken) onlyRedeemable(_poolToken) {
         // calculate path & amounts
-        address[] memory path = calculatePath(_fromToken, _poolToken);
+        address[] memory path = generatePath(_fromToken, _poolToken);
         uint256[] memory expAmounts = calculateExactOutSwap(
             _fromToken,
             _poolToken,
@@ -478,7 +478,7 @@ contract OffsetHelper is OffsetHelperStorage {
     {
         // calculate path & amounts
 
-        address[] memory path = calculatePath(_fromToken, _poolToken);
+        address[] memory path = generatePath(_fromToken, _poolToken);
 
         uint256 len = path.length;
 
@@ -574,7 +574,7 @@ contract OffsetHelper is OffsetHelperStorage {
         uint256 _toAmount
     ) public payable onlyRedeemable(_poolToken) {
         // create path & amounts
-        address[] memory path = calculatePath(_fromToken, _poolToken);
+        address[] memory path = generatePath(_fromToken, _poolToken);
 
         // swap
         uint256[] memory amounts = dexRouter().swapETHForExactTokens{
@@ -610,7 +610,7 @@ contract OffsetHelper is OffsetHelperStorage {
     ) public payable onlyRedeemable(_poolToken) returns (uint256) {
         // create path & amounts
         uint256 fromAmount = msg.value;
-        address[] memory path = calculatePath(_fromToken, _poolToken);
+        address[] memory path = generatePath(_fromToken, _poolToken);
 
         uint256 len = path.length;
 
@@ -663,7 +663,7 @@ contract OffsetHelper is OffsetHelperStorage {
         address _fromToken,
         uint256 _amount
     )
-        internal
+        public
         onlyRedeemable(_fromToken)
         returns (address[] memory tco2s, uint256[] memory amounts)
     {
@@ -697,7 +697,7 @@ contract OffsetHelper is OffsetHelperStorage {
     function autoRetire(
         address[] memory _tco2s,
         uint256[] memory _amounts
-    ) internal {
+    ) public {
         uint256 tco2sLen = _tco2s.length;
         require(tco2sLen != 0, "Array empty");
 
@@ -732,7 +732,7 @@ contract OffsetHelper is OffsetHelperStorage {
         uint256 _toAmount
     ) internal view returns (uint256[] memory amounts) {
         // create path & calculate amounts
-        address[] memory path = calculatePath(_fromToken, _poolToken);
+        address[] memory path = generatePath(_fromToken, _poolToken);
         uint256 len = path.length;
 
         amounts = dexRouter().getAmountsIn(_toAmount, path);
@@ -748,7 +748,7 @@ contract OffsetHelper is OffsetHelperStorage {
         uint256 _fromAmount
     ) internal view returns (uint256[] memory amounts) {
         // create path & calculate amounts
-        address[] memory path = calculatePath(_fromToken, _poolToken);
+        address[] memory path = generatePath(_fromToken, _poolToken);
         uint256 len = path.length;
 
         amounts = dexRouter().getAmountsOut(_fromAmount, path);
@@ -787,7 +787,7 @@ contract OffsetHelper is OffsetHelperStorage {
      * @param _fromToken a list of token symbols that can be retired.
      * @param _toToken a list of token symbols that can be retired.
      */
-    function calculatePath(
+    function generatePath(
         address _fromToken,
         address _toToken
     ) internal view returns (address[] memory path) {
