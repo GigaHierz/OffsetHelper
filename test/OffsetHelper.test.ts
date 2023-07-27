@@ -104,9 +104,6 @@ describe("OffsetHelper", function () {
         });
       })
     );
-    console.log(swapper.swapToken);
-    console.log(swapper.address);
-    console.log(networkAddresses[swapToken]);
 
     // Get cUSD, WMATIC, WETH, USDC fo testing
     await IWETH__factory.connect(networkAddresses[swapToken], addr2).deposit({
