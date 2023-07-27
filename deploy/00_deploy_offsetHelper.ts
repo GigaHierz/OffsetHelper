@@ -6,9 +6,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const pathsToUse = paths[hre.network.name];
   const poolAddressesToUse = poolAddresses[hre.network.name];
 
-  console.log(pathsToUse);
-  console.log(poolAddressesToUse);
-
   const { deployments, getNamedAccounts } = hre;
   const { deploy } = deployments;
   const { deployer } = await getNamedAccounts();

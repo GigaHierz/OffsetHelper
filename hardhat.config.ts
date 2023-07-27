@@ -78,7 +78,18 @@ const config: HardhatUserConfig = {
     apiKey: {
       polygon: process.env.BLOCK_EXPLORER_API_KEY || "",
       polygonMumbai: process.env.BLOCK_EXPLORER_API_KEY || "",
+      celo: process.env.BLOCK_EXPLORER_API_KEY || "",
     },
+    customChains: [
+      {
+        network: "celo",
+        chainId: 42220,
+        urls: {
+          apiURL: `https://api.celoscan.io`,
+          browserURL: "https://celoscan.io/",
+        },
+      },
+    ],
   },
   docgen: {
     pages: (item: any, file: any) =>
