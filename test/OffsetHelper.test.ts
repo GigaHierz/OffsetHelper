@@ -104,12 +104,14 @@ describe("OffsetHelper", function () {
         });
       })
     );
+    console.log(swapper.swapToken);
+    console.log(swapper.address);
+    console.log(networkAddresses[swapToken]);
 
-    // Get WMATIC, WETH, USDC fo testing
+    // Get cUSD, WMATIC, WETH, USDC fo testing
     await IWETH__factory.connect(networkAddresses[swapToken], addr2).deposit({
       value: parseEther("1000"),
     });
-
     await swapper.swap(networkAddresses.WETH, parseEther("20.0"), {
       value: await swapper.calculateNeededTokenAmount(
         networkAddresses.WETH,
@@ -137,6 +139,14 @@ describe("OffsetHelper", function () {
         parseEther("50.0")
       ),
     });
+
+    // await swapper.swap(networkAddresses.WETH, parseEther("20.0"));
+
+    // await swapper.swap(networkAddresses.USDC, parseUSDC("10.0"));
+
+    // await swapper.swap(networkPoolAddress.BCT, parseEther("50.0"));
+
+    // await swapper.swap(networkPoolAddress.NCT, parseEther("50.0"));
 
     return {
       offsetHelper,
@@ -269,7 +279,7 @@ describe("OffsetHelper", function () {
       }
 
       for (const name of TOKEN_POOLS) {
-        it(`should retire 20 MATIC for ${name.toUpperCase()} redemption`, async function () {
+        it(`should retire 20 native Token, e.g., MATIC for ${name.toUpperCase()} redemption`, async function () {
           const { tokens } = await loadFixture(deployOffsetHelperFixture);
           const poolToken = tokens[name];
           await retireFixedInETH(parseEther("20"), poolToken.token());
@@ -280,7 +290,7 @@ describe("OffsetHelper", function () {
 
   describe("#autoOffsetExactOut{ETH,Token}()", function () {
     for (const name of TOKEN_POOLS) {
-      it(`should retire 1.0 TCO2 using a MATIC swap and ${name.toUpperCase()} redemption`, async function () {
+      it(`should retire 1.0 TCO2 using a Token swap and ${name.toUpperCase()} redemption`, async function () {
         if (network === "polygon") {
           const { offsetHelper, addr2, tokens } = await loadFixture(
             deployOffsetHelperFixture
@@ -292,14 +302,14 @@ describe("OffsetHelper", function () {
           const testTokenBalanceBefore = await addr2.getBalance();
           const poolTokenSupplyBefore = await poolToken.token().totalSupply();
 
-          // then we calculate the cost in MATIC of retiring 1.0 TCO2
+          // then we calculate the cost in Token of retiring 1.0 TCO2
           const testTokenCost = await offsetHelper.calculateNeededTokenAmount(
             networkAddresses[swapToken],
             networkPoolAddress[poolToken.name],
             ONE_ETHER
           );
 
-          // then we use the autoOffset function to retire 1.0 TCO2 from MATIC using NCT
+          // then we use the autoOffset function to retire 1.0 TCO2 from native Token, e.g., MATIC using NCT
           const tx = await (
             await offsetHelper.autoOffsetExactOutETH(
               networkAddresses[swapToken],
@@ -322,7 +332,9 @@ describe("OffsetHelper", function () {
           // lastly we compare chain states
           expect(
             formatEther(testTokenBalanceBefore.sub(testTokenBalanceAfter)),
-            `User should have spent ${formatEther(testTokenCost)}} MATIC`
+            `User should have spent ${formatEther(
+              testTokenCost
+            )}} native Token, e.g., MATIC`
           ).to.equal(formatEther(testTokenCost.add(txFees)));
           expect(
             formatEther(poolTokenSupplyBefore.sub(poolTokenSupplyAfter)),
@@ -922,7 +934,7 @@ describe("OffsetHelper", function () {
 
   describe("#swapExactOut{ETH,Token}() for pool token", function () {
     for (const name of TOKEN_POOLS) {
-      it(`should swap MATIC for 1.0 ${name.toUpperCase()}`, async function () {
+      it(`should swap native Token, e.g., MATIC for 1.0 ${name.toUpperCase()}`, async function () {
         if (network === "polygon") {
           const { offsetHelper, tokens } = await loadFixture(
             deployOffsetHelperFixture
@@ -954,7 +966,7 @@ describe("OffsetHelper", function () {
         }
       });
 
-      it(`should send surplus MATIC to user`, async function () {
+      it(`should send surplus native Token, e.g., MATIC to user`, async function () {
         if (network === "polygon") {
           const { offsetHelper, tokens } = await loadFixture(
             deployOffsetHelperFixture
@@ -987,8 +999,8 @@ describe("OffsetHelper", function () {
             offsetHelper.address
           );
 
-          // I'm expecting that the OffsetHelper doesn't have extra MATIC
-          // this check is done to ensure any surplus MATIC has been sent to the user, and not to OffsetHelper
+          // I'm expecting that the OffsetHelper doesn't have extra native Token, e.g., MATIC
+          // this check is done to ensure any surplus native Token, e.g., MATIC has been sent to the user, and not to OffsetHelper
           expect(formatEther(preSwapETHBalance)).to.be.eql(
             formatEther(postSwapETHBalance)
           );
