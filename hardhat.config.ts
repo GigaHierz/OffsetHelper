@@ -52,8 +52,7 @@ const config: HardhatUserConfig = {
       chainId: 42220,
     },
     polygon: {
-      url:
-        process.env.RPC_ENDPOINT || "https://matic-mainnet.chainstacklabs.com",
+      url: process.env.RPC_ENDPOINT || "https://rpc.ankr.com/polygon",
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },

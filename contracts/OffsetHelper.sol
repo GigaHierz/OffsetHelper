@@ -517,7 +517,7 @@ contract OffsetHelper is OffsetHelperStorage {
     /**
      * @notice Return how much native tokens e.g, MATIC is required in order to swap for the
      * desired amount of a Toucan pool token,  e.g., NCT or BCT.
-     *
+     * @param _fromToken The address of the native token used for the swap
      * @param _poolToken The address of the pool token to swap for, for
      * example, NCT or BCT
      * @param _toAmount The desired amount of pool token to receive
