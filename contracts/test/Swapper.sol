@@ -10,7 +10,6 @@ contract Swapper {
     address public dexRouterAddress =
         0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506; // SushiSwap
     // 0x7D28570135A2B1930F331c507F65039D4937f66c; // Ubeswap
-    // 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D; // Uniswap;
     mapping(address => address[]) public eligibleSwapPaths;
     address public swapToken;
 

@@ -222,7 +222,6 @@ contract OffsetHelper is OffsetHelperStorage {
      * @dev If the user sends too much native tokens , the leftover amount will be sent back
      * to the user.
      *
-     * @param _fromToken The address of the native token that the user sends
      * @param _poolToken The address of the pool token to swap for,
      *  e.g., NCT or BCT
      * @param _amountToOffset The amount of TCO2 to offset.
@@ -231,7 +230,6 @@ contract OffsetHelper is OffsetHelperStorage {
      * @return amounts An array of the amounts of each TCO2 that were redeemed
      */
     function autoOffsetExactOutETH(
-        address _fromToken,
         address _poolToken,
         uint256 _amountToOffset
     )
@@ -240,7 +238,7 @@ contract OffsetHelper is OffsetHelperStorage {
         returns (address[] memory tco2s, uint256[] memory amounts)
     {
         // swap native tokens  for BCT / NCT
-        swapExactOutETH(_fromToken, _poolToken, _amountToOffset);
+        swapExactOutETH(_poolToken, _amountToOffset);
 
         // redeem BCT / NCT for TCO2s
         (tco2s, amounts) = autoRedeem(_poolToken, _amountToOffset);
@@ -259,7 +257,6 @@ contract OffsetHelper is OffsetHelperStorage {
      * 2. Redeems the pool token for the poorest quality TCO2 tokens available.
      * 3. Retires the TCO2 tokens.
      *
-     * @param _fromToken Symbol of the Native Token like e.g., WMATIC
      * @param _poolToken The address of the pool token to swap for,
      *  e.g., NCT or BCT
      *
@@ -267,7 +264,6 @@ contract OffsetHelper is OffsetHelperStorage {
      * @return amounts An array of the amounts of each TCO2 that were redeemed
      */
     function autoOffsetExactInETH(
-        address _fromToken,
         address _poolToken
     )
         public
@@ -275,7 +271,7 @@ contract OffsetHelper is OffsetHelperStorage {
         returns (address[] memory tco2s, uint256[] memory amounts)
     {
         // swap native tokens  for BCT / NCT
-        uint256 amountToOffset = swapExactInETH(_fromToken, _poolToken);
+        uint256 amountToOffset = swapExactInETH(_poolToken);
 
         // redeem BCT / NCT for TCO2s
         (tco2s, amounts) = autoRedeem(_poolToken, amountToOffset);
@@ -517,7 +513,6 @@ contract OffsetHelper is OffsetHelperStorage {
     /**
      * @notice Return how much native tokens e.g, MATIC is required in order to swap for the
      * desired amount of a Toucan pool token,  e.g., NCT or BCT.
-     * @param _fromToken The address of the native token used for the swap
      * @param _poolToken The address of the pool token to swap for, for
      * example, NCT or BCT
      * @param _toAmount The desired amount of pool token to receive
@@ -525,12 +520,12 @@ contract OffsetHelper is OffsetHelperStorage {
      * the specified amount of the pool token
      */
     function calculateNeededETHAmount(
-        address _fromToken,
         address _poolToken,
         uint256 _toAmount
     ) public view onlyRedeemable(_poolToken) returns (uint256) {
+        address fromToken = eligibleSwapPathsBySymbol["WMATIC"][0];
         uint256[] memory amounts = calculateExactOutSwap(
-            _fromToken,
+            fromToken,
             _poolToken,
             _toAmount
         );
@@ -541,19 +536,18 @@ contract OffsetHelper is OffsetHelperStorage {
      * @notice Calculates the expected amount of Toucan Pool token that can be
      * acquired by swapping the provided amount of native tokens e.g., MATIC.
      *
-     * @param _fromToken Native Token like e.g., MATIC
      * @param _fromTokenAmount The amount of native tokens  to swap
      * @param _poolToken The address of the pool token to swap for,
      *  e.g., NCT or BCT
      * @return The expected amount of Pool token that can be acquired
      */
     function calculateExpectedPoolTokenForETH(
-        address _fromToken,
         address _poolToken,
         uint256 _fromTokenAmount
     ) public view onlyRedeemable(_poolToken) returns (uint256) {
+        address fromToken = eligibleSwapPathsBySymbol["WMATIC"][0];
         uint256[] memory amounts = calculateExactInSwap(
-            _fromToken,
+            fromToken,
             _poolToken,
             _fromTokenAmount
         );
@@ -563,18 +557,18 @@ contract OffsetHelper is OffsetHelperStorage {
     /**
      * @notice Swap native tokens e.g., MATIC for Toucan pool tokens (BCT/NCT) on SushiSwap.
      * Remaining native tokens  that was not consumed by the swap is returned.
-     * @param _fromToken Native Token like e.g., CELO to swap
      * @param _poolToken The address of the pool token to swap for,
      *  e.g., NCT or BCT
      * @param _toAmount The required amount of the Toucan pool token (NCT/BCT)
      */
     function swapExactOutETH(
-        address _fromToken,
         address _poolToken,
         uint256 _toAmount
     ) public payable onlyRedeemable(_poolToken) {
         // create path & amounts
-        address[] memory path = generatePath(_fromToken, _poolToken);
+        // wrap the native token
+        address fromToken = eligibleSwapPathsBySymbol["WMATIC"][0];
+        address[] memory path = generatePath(fromToken, _poolToken);
 
         // swap
         uint256[] memory amounts = dexRouter().swapETHForExactTokens{
@@ -598,19 +592,19 @@ contract OffsetHelper is OffsetHelperStorage {
     /**
      * @notice Swap native tokens e.g., MATIC for Toucan pool tokens (BCT/NCT) on SushiSwap. All
      * provided native tokens  will be swapped.
-     * @param _fromToken Native Token like e.g., CELO to swap from will be swapped for pool token
      * @param _poolToken The address of the pool token to swap for,
      *  e.g., NCT or BCT
      * @return Resulting amount of Toucan pool token that got acquired for the
      * swapped native tokens .
      */
     function swapExactInETH(
-        address _fromToken,
         address _poolToken
     ) public payable onlyRedeemable(_poolToken) returns (uint256) {
         // create path & amounts
         uint256 fromAmount = msg.value;
-        address[] memory path = generatePath(_fromToken, _poolToken);
+        // wrap the native token
+        address fromToken = eligibleSwapPathsBySymbol["WMATIC"][0];
+        address[] memory path = generatePath(fromToken, _poolToken);
 
         uint256 len = path.length;
 

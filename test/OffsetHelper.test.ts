@@ -243,7 +243,6 @@ describe("OffsetHelper", function () {
         );
 
         const expOffset = await offsetHelper.calculateExpectedPoolTokenForETH(
-          networkAddresses[swapToken],
           poolToken.address,
           fromAmount
         );
@@ -252,13 +251,9 @@ describe("OffsetHelper", function () {
 
         const supplyBefore = await poolToken.totalSupply();
         await expect(
-          offsetHelper.autoOffsetExactInETH(
-            networkAddresses[swapToken],
-            poolToken.address,
-            {
-              value: fromAmount,
-            }
-          )
+          offsetHelper.autoOffsetExactInETH(poolToken.address, {
+            value: fromAmount,
+          })
         )
           .to.emit(offsetHelper, "Redeemed")
           .withArgs(
@@ -309,9 +304,7 @@ describe("OffsetHelper", function () {
           // then we use the autoOffset function to retire 1.0 TCO2 from native Token, e.g., MATIC using NCT
           const tx = await (
             await offsetHelper.autoOffsetExactOutETH(
-              networkAddresses[swapToken],
               networkPoolAddress[poolToken.name],
-
               ONE_ETHER,
               {
                 value: testTokenCost,
@@ -946,9 +939,7 @@ describe("OffsetHelper", function () {
 
           await (
             await offsetHelper.swapExactOutETH(
-              networkAddresses[swapToken],
               networkPoolAddress[poolToken.name],
-
               ONE_ETHER,
               {
                 value: testTokenToSend,
@@ -982,9 +973,7 @@ describe("OffsetHelper", function () {
 
           await (
             await offsetHelper.swapExactOutETH(
-              networkAddresses[swapToken],
               networkPoolAddress[poolToken.name],
-
               ONE_ETHER,
               {
                 value: testTokenToSend.add(parseEther("0.5")),
