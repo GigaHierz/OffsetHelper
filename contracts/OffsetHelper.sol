@@ -826,6 +826,19 @@ contract OffsetHelper is OffsetHelperStorage {
     // ----------------------------------------
 
     /**
+     * @notice Checks if ERC20 Token is eligible for Offsetting.
+     * @param _erc20Address The address of the ERC20 token that the user sends
+     * (e.g., cUSD, cUSD, USDC, WETH, WMATIC)
+     * @return _isEligible Returns if token can be redeemed
+     */
+
+    function isERC20AddressEligible(
+        address _erc20Address
+    ) public view returns (bool _isEligible) {
+        _isEligible = isSwappable(_erc20Address);
+    }
+
+    /**
      * @notice Change or add eligible paths and their addresses.
      * @param _tokenSymbol The symbol of the token to add
      * @param _path The path of the path to add
@@ -846,6 +859,18 @@ contract OffsetHelper is OffsetHelperStorage {
     function removePath(string memory _tokenSymbol) public virtual onlyOwner {
         delete eligibleSwapPaths[eligibleSwapPathsBySymbol[_tokenSymbol][0]];
         delete eligibleSwapPathsBySymbol[_tokenSymbol];
+    }
+
+    /**
+     * @notice Cheks if Pool Token is eligible for Offsetting.
+     * @param _poolToken The addresses of the pool token to redeem
+     * @return _isEligible Returns if token can be redeemed
+     */
+
+    function isPoolAddressEligible(
+        address _poolToken
+    ) public view returns (bool _isEligible) {
+        _isEligible = isRedeemable(_poolToken);
     }
 
     /**
