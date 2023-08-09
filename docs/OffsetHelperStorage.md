@@ -2,10 +2,16 @@
 
 ## OffsetHelperStorage
 
-### eligibleTokenAddresses
+### eligibleSwapPaths
 
 ```solidity
-mapping(string => address) eligibleTokenAddresses
+mapping(string => address eligibleSwapPaths
+```
+
+### eligibleSwapPathsBySymbol
+
+```solidity
+mapping(string => address eligibleSwapPathsBySymbol
 ```
 
 ### contractRegistryAddress
@@ -14,10 +20,10 @@ mapping(string => address) eligibleTokenAddresses
 address contractRegistryAddress
 ```
 
-### sushiRouterAddress
+### dexRouterAddress
 
 ```solidity
-address sushiRouterAddress
+address dexRouterAddress
 ```
 
 ### balances
@@ -25,4 +31,3 @@ address sushiRouterAddress
 ```solidity
 mapping(address => mapping(address => uint256)) balances
 ```
-
