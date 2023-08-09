@@ -7,38 +7,36 @@ process.
 
 Retiring carbon tokens requires multiple steps and interactions with
 Toucan Protocol's main contracts:
-
-1. Obtain a Toucan pool token such as BCT or NCT (by performing a token
-   swap).
+1. Obtain a Toucan pool token e.g., NCT or BCT (by performing a token
+   swap on a DEX).
 2. Redeem the pool token for a TCO2 token.
 3. Retire the TCO2 token.
 
 These steps are combined in each of the following "auto offset" methods
 implemented in `OffsetHelper` to allow a retirement within one transaction:
-
 - `autoOffsetPoolToken()` if the user already owns a Toucan pool
-  token such as BCT or NCT,
+  token e.g., NCT or BCT,
 - `autoOffsetExactOutETH()` if the user would like to perform a retirement
-  using MATIC, specifying the exact amount of TCO2s to retire,
+  using native tokens e.g., MATIC, specifying the exact amount of TCO2s to retire,
 - `autoOffsetExactInETH()` if the user would like to perform a retirement
-  using MATIC, swapping all sent MATIC into TCO2s,
+  using native tokens, swapping all sent native tokens into TCO2s,
 - `autoOffsetExactOutToken()` if the user would like to perform a retirement
-  using an ERC20 token (USDC, WETH or WMATIC), specifying the exact amount
+  using an ERC20 token (cUSD, USDC, WETH or WMATIC), specifying the exact amount
   of TCO2s to retire,
 - `autoOffsetExactInToken()` if the user would like to perform a retirement
-  using an ERC20 token (USDC, WETH or WMATIC), specifying the exact amount
+  using an ERC20 token (cUSD, USDC, WETH or WMATIC), specifying the exact amount
   of token to swap into TCO2s.
 
 In these methods, "auto" refers to the fact that these methods use
 `autoRedeem()` in order to automatically choose a TCO2 token corresponding
 to the oldest tokenized carbon project in the specfified token pool.
 There are no fees incurred by the user when using `autoRedeem()`, i.e., the
-user receives 1 TCO2 token for each pool token e.g., NCT redeemed.
+user receives 1 TCO2 token for each pool token (BCT/NCT) redeemed.
 
 There are two `view` helper functions `calculateNeededETHAmount()` and
 `calculateNeededTokenAmount()` that should be called before using
 `autoOffsetExactOutETH()` and `autoOffsetExactOutToken()`, to determine how
-much MATIC, respectively how much of the ERC20 token must be sent to the
+much native tokens e.g., MATIC, respectively how much of the ERC20 token must be sent to the
 `OffsetHelper` contract in order to retire the specified amount of carbon.
 
 The two `view` helper functions `calculateExpectedPoolTokenForETH()` and
@@ -46,25 +44,44 @@ The two `view` helper functions `calculateExpectedPoolTokenForETH()` and
 expected amount of TCO2s that will be offset using functions
 `autoOffsetExactInETH()` and `autoOffsetExactInToken()`.
 
+### poolAddresses
+
+```solidity
+address[] poolAddresses
+```
+
+### tokenSymbolsForPaths
+
+```solidity
+string[] tokenSymbolsForPaths
+```
+
+### paths
+
+```solidity
+address[][] paths
+```
+
 ### constructor
 
 ```solidity
-constructor(address[] memory _poolAddresses, string[] memory _tokenSymbolsForPaths, address[][] memory _paths) public
+constructor(address[] _poolAddresses, string[] _tokenSymbolsForPaths, address[][] _paths) public
 ```
 
-Contract constructor. Should specify arrays of addresses of Pool tokens like NCT, an array of ERC20 symbols of the tokens that can be used to offset by the contract and swap paths for theses tokens.
+Contract constructor. Should specify arrays of ERC20 symbols and
+addresses that can used by the contract.
 
-_Get `poolAddresses` for a list of pool tokens that can be used in the contract. These can be modified after deployment by the contract owner using `addPath()` and `removePath()`._
-
-_Get `tokenSymbolsForPaths` for a list of tokens that can be used in the contract. These can be modified after deployment by the contract owner using `addPath()` and `removePath()`._
+_See `isEligible()` for a list of tokens that can be used in the
+contract. These can be modified after deployment by the contract owner
+using `setEligibleTokenAddress()` and `deleteEligibleTokenAddress()`._
 
 #### Parameters
 
-| Name                   | Type        | Description                                                                     |
-| ---------------------- | ----------- | ------------------------------------------------------------------------------- |
-| \_poolAddresses        | address[]   | A list of pool addresses of pool tokens that can be redeemed for TCO2a.         |
-| \_tokenSymbolsForPaths | string[]    | A list of token symbols.                                                        |
-| \_paths                | address[][] | A list of paths to swap ERC20 tokens corresponding to the t pool token symbols. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolAddresses | address[] | A list of pool token addresses. |
+| _tokenSymbolsForPaths | string[] | An array of symbols of the token the user want to retire carbon credits for |
+| _paths | address[][] | An array of arrays of addresses to describe the path needed to swap form the baseToken to the pool Token to the provided token symbols. |
 
 ### Redeemed
 
@@ -73,16 +90,16 @@ event Redeemed(address sender, address poolToken, address[] tco2s, uint256[] amo
 ```
 
 Emitted upon successful redemption of TCO2 tokens from a Toucan
-pool token such as BCT or NCT.
+pool token e.g., NCT or BCT.
 
 #### Parameters
 
-| Name      | Type      | Description                                                                          |
-| --------- | --------- | ------------------------------------------------------------------------------------ |
-| sender    | address   | The sender of the transaction                                                        |
-| poolToken | address   | The address of the Toucan pool token used in the redemption, for example, NCT or BCT |
-| tco2s     | address[] | An array of the TCO2 addresses that were redeemed                                    |
-| amounts   | uint256[] | An array of the amounts of each TCO2 that were redeemed                              |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| sender | address | The sender of the transaction |
+| poolToken | address | The address of the Toucan pool token used in the redemption,  e.g., NCT or BCT |
+| tco2s | address[] | An array of the TCO2 addresses that were redeemed |
+| amounts | uint256[] | An array of the amounts of each TCO2 that were redeemed |
 
 ### onlyRedeemable
 
@@ -99,7 +116,7 @@ modifier onlySwappable(address _token)
 ### autoOffsetExactOutToken
 
 ```solidity
-function autoOffsetExactOutToken(address _depositedToken, address _poolToken, uint256 _amountToOffset) public returns (address[] tco2s, uint256[] amounts)
+function autoOffsetExactOutToken(address _fromToken, address _poolToken, uint256 _amountToOffset) public returns (address[] tco2s, uint256[] amounts)
 ```
 
 Retire carbon credits using the lowest quality (oldest) TCO2
@@ -109,7 +126,6 @@ order to find out how much of the ERC20 token is required to retire the
 specified quantity of TCO2.
 
 This function:
-
 1. Swaps the ERC20 token sent to the contract for the specified pool token.
 2. Redeems the pool token for the poorest quality TCO2 tokens available.
 3. Retires the TCO2 tokens.
@@ -122,17 +138,17 @@ token._
 
 #### Parameters
 
-| Name             | Type    | Description                                                                                  |
-| ---------------- | ------- | -------------------------------------------------------------------------------------------- |
-| \_depositedToken | address | The address of the ERC20 token that the user sends (must be one of cUSD, USDC, WETH, WMATIC) |
-| \_poolToken      | address | The address of the Toucan pool token that the user wants to use, for example, NCT or BCT     |
-| \_amountToOffset | uint256 | The amount of TCO2 to offset                                                                 |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _fromToken | address | The address of the ERC20 token that the user sends (e.g., cUSD, cUSD, USDC, WETH, WMATIC) |
+| _poolToken | address | The address of the Toucan pool token that the user wants to use,  e.g., NCT or BCT |
+| _amountToOffset | uint256 | The amount of TCO2 to offset |
 
 #### Return Values
 
-| Name    | Type      | Description                                             |
-| ------- | --------- | ------------------------------------------------------- |
-| tco2s   | address[] | An array of the TCO2 addresses that were redeemed       |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tco2s | address[] | An array of the TCO2 addresses that were redeemed |
 | amounts | uint256[] | An array of the amounts of each TCO2 that were redeemed |
 
 ### autoOffsetExactInToken
@@ -147,7 +163,6 @@ tokens (cUSD, USDC, WETH, WMATIC). All provided token is consumed for
 offsetting.
 
 This function:
-
 1. Swaps the ERC20 token sent to the contract for the specified pool token.
 2. Redeems the pool token for the poorest quality TCO2 tokens available.
 3. Retires the TCO2 tokens.
@@ -160,17 +175,17 @@ token._
 
 #### Parameters
 
-| Name           | Type    | Description                                                                                        |
-| -------------- | ------- | -------------------------------------------------------------------------------------------------- |
-| \_fromToken    | address | The address of the ERC20 token that the user sends (must be one of cUSD, USDC, WETH, WMATIC)       |
-| \_poolToken    | address | The address of the Toucan pool token that the user wants to use, for example, NCT or BCT           |
-| \_amountToSwap | uint256 | The amount of ERC20 token to swap into Toucan pool token. Full amount will be used for offsetting. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _fromToken | address | The address of the ERC20 token that the user sends (e.g., cUSD, cUSD, USDC, WETH, WMATIC) |
+| _poolToken | address | The address of the Toucan pool token that the user wants to use,  e.g., NCT or BCT |
+| _amountToSwap | uint256 | The amount of ERC20 token to swap into Toucan pool token. Full amount will be used for offsetting. |
 
 #### Return Values
 
-| Name    | Type      | Description                                             |
-| ------- | --------- | ------------------------------------------------------- |
-| tco2s   | address[] | An array of the TCO2 addresses that were redeemed       |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tco2s | address[] | An array of the TCO2 addresses that were redeemed |
 | amounts | uint256[] | An array of the amounts of each TCO2 that were redeemed |
 
 ### autoOffsetExactOutETH
@@ -180,31 +195,30 @@ function autoOffsetExactOutETH(address _poolToken, uint256 _amountToOffset) publ
 ```
 
 Retire carbon credits using the lowest quality (oldest) TCO2
-tokens available from the specified Toucan token pool by sending MATIC.
+tokens available from the specified Toucan token pool by sending native tokens e.g., MATIC.
 Use `calculateNeededETHAmount()` first in order to find out how much
-MATIC is required to retire the specified quantity of TCO2.
+native tokens are required to retire the specified quantity of TCO2.
 
 This function:
-
 1. Swaps the Matic sent to the contract for the specified pool token.
 2. Redeems the pool token for the poorest quality TCO2 tokens available.
 3. Retires the TCO2 tokens.
 
-_If the user sends much MATIC, the leftover amount will be sent back
+_If the user sends too much native tokens , the leftover amount will be sent back
 to the user._
 
 #### Parameters
 
-| Name             | Type    | Description                                                                               |
-| ---------------- | ------- | ----------------------------------------------------------------------------------------- |
-| \_poolToken      | address | The address of the Toucan pool token that the user wants to use, for example, NCT or BCT. |
-| \_amountToOffset | uint256 | The amount of TCO2 to offset.                                                             |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolToken | address | The address of the pool token to swap for,  e.g., NCT or BCT |
+| _amountToOffset | uint256 | The amount of TCO2 to offset. |
 
 #### Return Values
 
-| Name    | Type      | Description                                             |
-| ------- | --------- | ------------------------------------------------------- |
-| tco2s   | address[] | An array of the TCO2 addresses that were redeemed       |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tco2s | address[] | An array of the TCO2 addresses that were redeemed |
 | amounts | uint256[] | An array of the amounts of each TCO2 that were redeemed |
 
 ### autoOffsetExactInETH
@@ -214,26 +228,25 @@ function autoOffsetExactInETH(address _poolToken) public payable returns (addres
 ```
 
 Retire carbon credits using the lowest quality (oldest) TCO2
-tokens available from the specified Toucan token pool by sending MATIC.
-All provided MATIC is consumed for offsetting.
+tokens available from the specified Toucan token pool by sending native tokens e.g., MATIC.
+All provided native tokens  is consumed for offsetting.
 
 This function:
-
 1. Swaps the Matic sent to the contract for the specified pool token.
 2. Redeems the pool token for the poorest quality TCO2 tokens available.
 3. Retires the TCO2 tokens.
 
 #### Parameters
 
-| Name        | Type    | Description                                                                               |
-| ----------- | ------- | ----------------------------------------------------------------------------------------- |
-| \_poolToken | address | The address of the Toucan pool token that the user wants to use, for example, NCT or BCT. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolToken | address | The address of the pool token to swap for,  e.g., NCT or BCT |
 
 #### Return Values
 
-| Name    | Type      | Description                                             |
-| ------- | --------- | ------------------------------------------------------- |
-| tco2s   | address[] | An array of the TCO2 addresses that were redeemed       |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tco2s | address[] | An array of the TCO2 addresses that were redeemed |
 | amounts | uint256[] | An array of the amounts of each TCO2 that were redeemed |
 
 ### autoOffsetPoolToken
@@ -243,10 +256,9 @@ function autoOffsetPoolToken(address _poolToken, uint256 _amountToOffset) public
 ```
 
 Retire carbon credits using the lowest quality (oldest) TCO2
-tokens available by sending Toucan pool tokens, for example, BCT or NCT.
+tokens available by sending Toucan pool tokens,  e.g., NCT or BCT.
 
 This function:
-
 1. Redeems the pool token for the poorest quality TCO2 tokens available.
 2. Retires the TCO2 tokens.
 
@@ -254,46 +266,46 @@ Note: The client must approve the pool token that is sent.
 
 #### Parameters
 
-| Name             | Type    | Description                                                                               |
-| ---------------- | ------- | ----------------------------------------------------------------------------------------- |
-| \_poolToken      | address | The address of the Toucan pool token that the user wants to use, for example, NCT or BCT. |
-| \_amountToOffset | uint256 | The amount of TCO2 to offset.                                                             |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolToken | address | The address of the pool token to swap for,  e.g., NCT or BCT |
+| _amountToOffset | uint256 | The amount of TCO2 to offset. |
 
 #### Return Values
 
-| Name    | Type      | Description                                             |
-| ------- | --------- | ------------------------------------------------------- |
-| tco2s   | address[] | An array of the TCO2 addresses that were redeemed       |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tco2s | address[] | An array of the TCO2 addresses that were redeemed |
 | amounts | uint256[] | An array of the amounts of each TCO2 that were redeemed |
 
 ### calculateNeededTokenAmount
 
 ```solidity
-function calculateNeededTokenAmount(address _fromToken, address _toToken, uint256 _toAmount) public view returns (uint256)
+function calculateNeededTokenAmount(address _fromToken, address _poolToken, uint256 _toAmount) public view returns (uint256)
 ```
 
 Return how much of the specified ERC20 token is required in
 order to swap for the desired amount of a Toucan pool token, for
-example, BCT or NCT.
+example,  e.g., NCT or BCT.
 
 #### Parameters
 
-| Name        | Type    | Description                                                        |
-| ----------- | ------- | ------------------------------------------------------------------ |
-| \_fromToken | address | The address of the ERC20 token used for the swap                   |
-| \_toToken   | address | The address of the pool token to swap for, for example, NCT or BCT |
-| \_toAmount  | uint256 | The desired amount of pool token to receive                        |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _fromToken | address | The address of the ERC20 token used for the swap |
+| _poolToken | address | The address of the pool token to swap for,  e.g., NCT or BCT |
+| _toAmount | uint256 | The desired amount of pool token to receive |
 
 #### Return Values
 
-| Name | Type    | Description                                                                                                  |
-| ---- | ------- | ------------------------------------------------------------------------------------------------------------ |
-| [0]  | uint256 | amountsIn The amount of the ERC20 token required in order to swap for the specified amount of the pool token |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint256 | amountsIn The amount of the ERC20 token required in order to swap for the specified amount of the pool token |
 
 ### calculateExpectedPoolTokenForToken
 
 ```solidity
-function calculateExpectedPoolTokenForToken(address _fromToken, uint256 _fromAmount, address _toToken) public view returns (uint256)
+function calculateExpectedPoolTokenForToken(address _fromToken, address _poolToken, uint256 _fromAmount) public view returns (uint256)
 ```
 
 Calculates the expected amount of Toucan Pool token that can be
@@ -301,60 +313,60 @@ acquired by swapping the provided amount of ERC20 token.
 
 #### Parameters
 
-| Name         | Type    | Description                                                        |
-| ------------ | ------- | ------------------------------------------------------------------ |
-| \_fromToken  | address | The address of the ERC20 token used for the swap                   |
-| \_fromAmount | uint256 | The amount of ERC20 token to swap                                  |
-| \_toToken    | address | The address of the pool token to swap for, for example, NCT or BCT |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _fromToken | address | The address of the ERC20 token used for the swap |
+| _poolToken | address | The address of the pool token to swap for,  e.g., NCT or BCT |
+| _fromAmount | uint256 | The amount of ERC20 token to swap |
 
 #### Return Values
 
-| Name | Type    | Description                                            |
-| ---- | ------- | ------------------------------------------------------ |
-| [0]  | uint256 | The expected amount of Pool token that can be acquired |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint256 | The expected amount of Pool token that can be acquired |
 
 ### swapExactOutToken
 
 ```solidity
-function swapExactOutToken(address _fromToken, address _toToken, uint256 _toAmount) public
+function swapExactOutToken(address _fromToken, address _poolToken, uint256 _toAmount) public
 ```
 
-Swap eligible ERC20 tokens for Toucan pool tokens e.g., NCT on a DEX
+Swap eligible ERC20 tokens for Toucan pool tokens (BCT/NCT) on SushiSwap
 
 _Needs to be approved on the client side_
 
 #### Parameters
 
-| Name        | Type    | Description                                            |
-| ----------- | ------- | ------------------------------------------------------ |
-| \_fromToken | address | The ERC20 oken to deposit and swap                     |
-| \_toToken   | address | The token to swap for (will be held within contract)   |
-| \_toAmount  | uint256 | The required amount of the Toucan pool token (NCT/BCT) |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _fromToken | address | The address of the ERC20 token used for the swap |
+| _poolToken | address | The address of the pool token to swap for,  e.g., NCT or BCT |
+| _toAmount | uint256 | The required amount of the Toucan pool token (NCT/BCT) |
 
 ### swapExactInToken
 
 ```solidity
-function swapExactInToken(address _fromToken, uint256 _fromAmount, address _toToken) public returns (uint256)
+function swapExactInToken(address _fromToken, address _poolToken, uint256 _fromAmount) public returns (uint256)
 ```
 
-Swap eligible ERC20 tokens for Toucan pool tokens e.g., NCT on
-a DEX. All provided ERC20 tokens will be swapped.
+Swap eligible ERC20 tokens for Toucan pool tokens (BCT/NCT) on
+SushiSwap. All provided ERC20 tokens will be swapped.
 
 _Needs to be approved on the client side._
 
 #### Parameters
 
-| Name         | Type    | Description                                                 |
-| ------------ | ------- | ----------------------------------------------------------- |
-| \_fromToken  | address | The ERC20 token to deposit and swap                         |
-| \_fromAmount | uint256 | The amount of ERC20 token to swap                           |
-| \_toToken    | address | The Toucan token to swap for (will be held within contract) |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _fromToken | address | The address of the ERC20 token used for the swap |
+| _poolToken | address | The address of the pool token to swap for, |
+| _fromAmount | uint256 | The amount of ERC20 token to swap  e.g., NCT or BCT |
 
 #### Return Values
 
-| Name | Type    | Description                                                                           |
-| ---- | ------- | ------------------------------------------------------------------------------------- |
-| [0]  | uint256 | Resulting amount of Toucan pool token that got acquired for the swapped ERC20 tokens. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint256 | Resulting amount of Toucan pool token that got acquired for the swapped ERC20 tokens. |
 
 ### fallback
 
@@ -371,83 +383,83 @@ receive() external payable
 ### calculateNeededETHAmount
 
 ```solidity
-function calculateNeededETHAmount(address _toToken, uint256 _toAmount) public view returns (uint256)
+function calculateNeededETHAmount(address _poolToken, uint256 _toAmount) public view returns (uint256)
 ```
 
-Return how much MATIC is required in order to swap for the
-desired amount of a Toucan pool token, for example, BCT or NCT.
+Return how much native tokens e.g, MATIC is required in order to swap for the
+desired amount of a Toucan pool token,  e.g., NCT or BCT.
 
 #### Parameters
 
-| Name       | Type    | Description                                                        |
-| ---------- | ------- | ------------------------------------------------------------------ |
-| \_toToken  | address | The address of the pool token to swap for, for example, NCT or BCT |
-| \_toAmount | uint256 | The desired amount of pool token to receive                        |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolToken | address | The address of the pool token to swap for, for example, NCT or BCT |
+| _toAmount | uint256 | The desired amount of pool token to receive |
 
 #### Return Values
 
-| Name | Type    | Description                                                                                      |
-| ---- | ------- | ------------------------------------------------------------------------------------------------ |
-| [0]  | uint256 | amounts The amount of MATIC required in order to swap for the specified amount of the pool token |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint256 | amounts The amount of native tokens  required in order to swap for the specified amount of the pool token |
 
 ### calculateExpectedPoolTokenForETH
 
 ```solidity
-function calculateExpectedPoolTokenForETH(uint256 _fromMaticAmount, address _toToken) public view returns (uint256)
+function calculateExpectedPoolTokenForETH(address _poolToken, uint256 _fromTokenAmount) public view returns (uint256)
 ```
 
 Calculates the expected amount of Toucan Pool token that can be
-acquired by swapping the provided amount of MATIC.
+acquired by swapping the provided amount of native tokens e.g., MATIC.
 
 #### Parameters
 
-| Name              | Type    | Description                                                        |
-| ----------------- | ------- | ------------------------------------------------------------------ |
-| \_fromMaticAmount | uint256 | The amount of MATIC to swap                                        |
-| \_toToken         | address | The address of the pool token to swap for, for example, NCT or BCT |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolToken | address | The address of the pool token to swap for,  e.g., NCT or BCT |
+| _fromTokenAmount | uint256 | The amount of native tokens  to swap |
 
 #### Return Values
 
-| Name | Type    | Description                                            |
-| ---- | ------- | ------------------------------------------------------ |
-| [0]  | uint256 | The expected amount of Pool token that can be acquired |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint256 | The expected amount of Pool token that can be acquired |
 
 ### swapExactOutETH
 
 ```solidity
-function swapExactOutETH(address _toToken, uint256 _toAmount) public payable
+function swapExactOutETH(address _poolToken, uint256 _toAmount) public payable
 ```
 
-Swap MATIC for Toucan pool tokens e.g., NCT on a DEX.
-Remaining MATIC that was not consumed by the swap is returned.
+Swap native tokens e.g., MATIC for Toucan pool tokens (BCT/NCT) on SushiSwap.
+Remaining native tokens  that was not consumed by the swap is returned.
 
 #### Parameters
 
-| Name       | Type    | Description                                      |
-| ---------- | ------- | ------------------------------------------------ |
-| \_toToken  | address | Token to swap for (will be held within contract) |
-| \_toAmount | uint256 | Amount of NCT / BCT wanted                       |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolToken | address | The address of the pool token to swap for,  e.g., NCT or BCT |
+| _toAmount | uint256 | The required amount of the Toucan pool token (NCT/BCT) |
 
 ### swapExactInETH
 
 ```solidity
-function swapExactInETH(address _toToken) public payable returns (uint256)
+function swapExactInETH(address _poolToken) public payable returns (uint256)
 ```
 
-Swap MATIC for Toucan pool tokens e.g., NCT on a DEX. All
-provided MATIC will be swapped.
+Swap native tokens e.g., MATIC for Toucan pool tokens (BCT/NCT) on SushiSwap. All
+provided native tokens  will be swapped.
 
 #### Parameters
 
-| Name      | Type    | Description                                      |
-| --------- | ------- | ------------------------------------------------ |
-| \_toToken | address | Token to swap for (will be held within contract) |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolToken | address | The address of the pool token to swap for,  e.g., NCT or BCT |
 
 #### Return Values
 
-| Name | Type    | Description                                                                    |
-| ---- | ------- | ------------------------------------------------------------------------------ |
-| [0]  | uint256 | Resulting amount of Toucan pool token that got acquired for the swapped MATIC. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint256 | Resulting amount of Toucan pool token that got acquired for the swapped native tokens . |
 
 ### withdraw
 
@@ -479,16 +491,16 @@ _Needs to be approved on the client side_
 
 #### Parameters
 
-| Name        | Type    | Description                        |
-| ----------- | ------- | ---------------------------------- |
-| \_fromToken | address | Could be the address of NCT or BCT |
-| \_amount    | uint256 | Amount to redeem                   |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _fromToken | address | Could be the address of NCT or BCT |
+| _amount | uint256 | Amount to redeem |
 
 #### Return Values
 
-| Name    | Type      | Description                                             |
-| ------- | --------- | ------------------------------------------------------- |
-| tco2s   | address[] | An array of the TCO2 addresses that were redeemed       |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tco2s | address[] | An array of the TCO2 addresses that were redeemed |
 | amounts | uint256[] | An array of the amounts of each TCO2 that were redeemed |
 
 ### autoRetire
@@ -501,63 +513,166 @@ Retire the specified TCO2 tokens.
 
 #### Parameters
 
-| Name      | Type      | Description                                                         |
-| --------- | --------- | ------------------------------------------------------------------- |
-| \_tco2s   | address[] | The addresses of the TCO2s to retire                                |
-| \_amounts | uint256[] | The amounts to retire from each of the corresponding TCO2 addresses |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _tco2s | address[] | The addresses of the TCO2s to retire |
+| _amounts | uint256[] | The amounts to retire from each of the corresponding TCO2 addresses |
 
 ### calculateExactOutSwap
 
 ```solidity
-function calculateExactOutSwap(address _fromToken, address _toToken, uint256 _toAmount) internal view returns (address[] path, uint256[] amounts)
+function calculateExactOutSwap(address _fromToken, address _poolToken, uint256 _toAmount) internal view returns (uint256[] amounts)
 ```
 
 ### calculateExactInSwap
 
 ```solidity
-function calculateExactInSwap(address _fromToken, uint256 _fromAmount, address _toToken) internal view returns (address[] path, uint256[] amounts)
+function calculateExactInSwap(address _fromToken, address _poolToken, uint256 _fromAmount) internal view returns (uint256[] amounts)
 ```
+
+### showEligibleTokens
+
+```solidity
+function showEligibleTokens() public view returns (string[] _tokens)
+```
+
+Show all tokens that can be used to Offset.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+
+### showEligiblePoolTokens
+
+```solidity
+function showEligiblePoolTokens() public view returns (address[] _poolTokens)
+```
+
+Show all pool token addresses that can be used to retire.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 
 ### generatePath
 
 ```solidity
-function generatePath(address _fromToken, address _toToken) internal view returns (address[])
+function generatePath(address _fromToken, address _toToken) internal view returns (address[] path)
 ```
 
-### routerSushi
-
-```solidity
-function routerSushi() internal view returns (contract IUniswapV2Router02)
-```
-
-### setEligibleTokenAddress
-
-```solidity
-function setEligibleTokenAddress(string _tokenSymbol, address _address) public virtual
-```
-
-Change or add eligible tokens and their addresses.
+Show all pool token addresses that can be used to retired.
 
 #### Parameters
 
-| Name          | Type    | Description                     |
-| ------------- | ------- | ------------------------------- |
-| \_tokenSymbol | string  | The symbol of the token to add  |
-| \_address     | address | The address of the token to add |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _fromToken | address | a list of token symbols that can be retired. |
+| _toToken | address | a list of token symbols that can be retired. |
 
-### deleteEligibleTokenAddress
+### dexRouter
 
 ```solidity
-function deleteEligibleTokenAddress(string _tokenSymbol) public virtual
+function dexRouter() internal view returns (contract IUniswapV2Router02)
+```
+
+### isERC20AddressEligible
+
+```solidity
+function isERC20AddressEligible(address _erc20Address) public view returns (bool _isEligible)
+```
+
+Checks if ERC20 Token is eligible for Offsetting.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _erc20Address | address | The address of the ERC20 token that the user sends (e.g., cUSD, cUSD, USDC, WETH, WMATIC) |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _isEligible | bool | Returns if token can be redeemed |
+
+### addPath
+
+```solidity
+function addPath(string _tokenSymbol, address[] _path) public virtual
+```
+
+Change or add eligible paths and their addresses.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _tokenSymbol | string | The symbol of the token to add |
+| _path | address[] | The path of the path to add |
+
+### removePath
+
+```solidity
+function removePath(string _tokenSymbol) public virtual
 ```
 
 Delete eligible tokens stored in the contract.
 
 #### Parameters
 
-| Name          | Type   | Description                       |
-| ------------- | ------ | --------------------------------- |
-| \_tokenSymbol | string | The symbol of the token to remove |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _tokenSymbol | string | The symbol of the path to remove |
+
+### isPoolAddressEligible
+
+```solidity
+function isPoolAddressEligible(address _poolToken) public view returns (bool _isEligible)
+```
+
+Cheks if Pool Token is eligible for Offsetting.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolToken | address | The addresses of the pool token to redeem |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _isEligible | bool | Returns if token can be redeemed |
+
+### addPoolToken
+
+```solidity
+function addPoolToken(address _poolToken) public virtual
+```
+
+Change or add pool token addresses.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolToken | address | The address of the pool token to add |
+
+### removePoolToken
+
+```solidity
+function removePoolToken(address _poolToken) public virtual
+```
+
+Delete eligible pool token addresses stored in the contract.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _poolToken | address | The address of the pool token to remove |
 
 ### setToucanContractRegistry
 
@@ -569,6 +684,7 @@ Change the TCO2 contracts registry.
 
 #### Parameters
 
-| Name      | Type    | Description                                        |
-| --------- | ------- | -------------------------------------------------- |
-| \_address | address | The address of the Toucan contract registry to use |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _address | address | The address of the Toucan contract registry to use |
+

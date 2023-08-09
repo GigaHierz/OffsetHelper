@@ -5,13 +5,13 @@
 ### eligibleSwapPaths
 
 ```solidity
-mapping(string => address eligibleSwapPaths
+mapping(address => address[]) eligibleSwapPaths
 ```
 
 ### eligibleSwapPathsBySymbol
 
 ```solidity
-mapping(string => address eligibleSwapPathsBySymbol
+mapping(string => address[]) eligibleSwapPathsBySymbol
 ```
 
 ### contractRegistryAddress
@@ -31,3 +31,4 @@ address dexRouterAddress
 ```solidity
 mapping(address => mapping(address => uint256)) balances
 ```
+
