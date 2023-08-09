@@ -110,28 +110,28 @@ describe("OffsetHelper", function () {
       value: parseEther("1000"),
     });
     await swapper.swap(networkAddresses.WETH, parseEther("20.0"), {
-      value: await swapper.calculateNeededTokenAmount(
+      value: await swapper.calculateNeededETHAmount(
         networkAddresses.WETH,
         parseEther("20.0")
       ),
     });
 
     await swapper.swap(networkAddresses.USDC, parseUSDC("10.0"), {
-      value: await swapper.calculateNeededTokenAmount(
+      value: await swapper.calculateNeededETHAmount(
         networkAddresses.USDC,
         parseUSDC("10.0")
       ),
     });
 
     await swapper.swap(networkPoolAddress.BCT, parseEther("50.0"), {
-      value: await swapper.calculateNeededTokenAmount(
+      value: await swapper.calculateNeededETHAmount(
         networkPoolAddress.BCT,
         parseEther("50.0")
       ),
     });
 
     await swapper.swap(networkPoolAddress.NCT, parseEther("50.0"), {
-      value: await swapper.calculateNeededTokenAmount(
+      value: await swapper.calculateNeededETHAmount(
         networkPoolAddress.NCT,
         parseEther("50.0")
       ),
@@ -295,8 +295,7 @@ describe("OffsetHelper", function () {
           const poolTokenSupplyBefore = await poolToken.token().totalSupply();
 
           // then we calculate the cost in Token of retiring 1.0 TCO2
-          const testTokenCost = await offsetHelper.calculateNeededTokenAmount(
-            networkAddresses[swapToken],
+          const testTokenCost = await offsetHelper.calculateNeededETHAmount(
             networkPoolAddress[poolToken.name],
             ONE_ETHER
           );
@@ -931,8 +930,7 @@ describe("OffsetHelper", function () {
           );
           const poolToken = tokens[name];
 
-          const testTokenToSend = await offsetHelper.calculateNeededTokenAmount(
-            networkAddresses[swapToken],
+          const testTokenToSend = await offsetHelper.calculateNeededETHAmount(
             networkPoolAddress[poolToken.name],
             ONE_ETHER
           );
@@ -965,8 +963,7 @@ describe("OffsetHelper", function () {
             offsetHelper.address
           );
 
-          const testTokenToSend = await offsetHelper.calculateNeededTokenAmount(
-            networkAddresses[swapToken],
+          const testTokenToSend = await offsetHelper.calculateNeededETHAmount(
             networkPoolAddress[poolToken.name],
             ONE_ETHER
           );

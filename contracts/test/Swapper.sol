@@ -23,7 +23,7 @@ contract Swapper {
         }
     }
 
-    function calculateNeededTokenAmount(
+    function calculateNeededETHAmount(
         address _toToken,
         uint256 _amount
     ) public view returns (uint256) {
