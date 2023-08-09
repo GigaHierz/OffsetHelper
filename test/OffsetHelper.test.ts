@@ -157,6 +157,48 @@ describe("OffsetHelper", function () {
     };
   }
 
+  describe.only("#isERC20AddressEligible()", function () {
+    it("should be true when weth  to pay for retirement", async function () {
+      const { offsetHelper, weth } = await loadFixture(
+        deployOffsetHelperFixture
+      );
+      expect(await offsetHelper.isERC20AddressEligible(weth.address)).to.equal(
+        true
+      );
+    });
+    it("should be false when inputing a non valid ERC20 token you want to use to pay for retirement", async function () {
+      const { offsetHelper } = await loadFixture(deployOffsetHelperFixture);
+      expect(
+        await offsetHelper.isERC20AddressEligible(
+          "0x8A4d7458dDe3023A3B24225D62087701A88b09DD"
+        )
+      ).to.equal(false);
+    });
+    it(`should be true  when inputing BCT`, async function () {
+      const { offsetHelper } = await loadFixture(deployOffsetHelperFixture);
+
+      expect(
+        await offsetHelper.isPoolAddressEligible(networkPoolAddress.BCT)
+      ).to.equal(true);
+    });
+    it(`should be true when inputing NCT`, async function () {
+      const { offsetHelper } = await loadFixture(deployOffsetHelperFixture);
+
+      expect(
+        await offsetHelper.isPoolAddressEligible(networkPoolAddress.NCT)
+      ).to.equal(true);
+    });
+    it(`should be false when inputing a non-valid pool address`, async function () {
+      const { offsetHelper } = await loadFixture(deployOffsetHelperFixture);
+
+      expect(
+        await offsetHelper.isPoolAddressEligible(
+          "0x8A4d7458dDe3023A3B24225D62087701A88b09DD"
+        )
+      ).to.equal(false);
+    });
+  });
+
   describe("#autoOffsetExactInToken()", function () {
     async function retireFixedInToken(
       fromToken: IERC20,
