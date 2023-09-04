@@ -56,9 +56,6 @@ import "./interfaces/IToucanContractRegistry.sol";
  */
 contract OffsetHelper is OffsetHelperStorage {
     using SafeERC20 for IERC20;
-    address[] poolAddresses;
-    string[] tokenSymbolsForPaths;
-    address[][] paths;
 
     /**
      * @notice Contract constructor. Should specify arrays of ERC20 symbols and
@@ -508,8 +505,6 @@ contract OffsetHelper is OffsetHelperStorage {
     // in the native tokens  to token swap fails
     fallback() external payable {}
 
-    receive() external payable {}
-
     /**
      * @notice Return how much native tokens e.g, MATIC is required in order to swap for the
      * desired amount of a Toucan pool token,  e.g., NCT.
@@ -805,13 +800,13 @@ contract OffsetHelper is OffsetHelperStorage {
      * @notice Checks if ERC20 Token is eligible for Offsetting.
      * @param _erc20Address The address of the ERC20 token that the user sends
      * (e.g., cUSD, cUSD, USDC, WETH, WMATIC)
-     * @return _isEligible Returns if token can be redeemed
+     * @return _path Returns the path of the token to be exchanged
      */
 
     function isERC20AddressEligible(
         address _erc20Address
-    ) public view returns (bool _isEligible) {
-        _isEligible = isSwappable(_erc20Address);
+    ) public view returns (address[] memory _path) {
+        _path = eligibleSwapPaths[_erc20Address];
     }
 
     /**

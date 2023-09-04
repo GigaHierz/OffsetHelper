@@ -20,7 +20,6 @@ import {
   Swapper,
   Swapper__factory,
 } from "../typechain";
-// import networkAddresses from "../utils/networkAddresses";
 import { BigNumber } from "ethers";
 import { sum as sumBN } from "../utils/bignumber";
 
@@ -29,7 +28,6 @@ type token = {
   token: () => IToucanPoolToken;
 };
 type networkType = "celo" | "polygon";
-
 const network: networkType = "polygon";
 const swapToken = "WMATIC";
 const networkAddresses = addresses[network];
@@ -46,11 +44,11 @@ describe("OffsetHelper", function () {
   const TOKEN_POOLS = ["nct", "bct"];
 
   async function deployOffsetHelperFixture() {
-    const [addr1, addr2, ...addrs] = await ethers.getSigners();
+    const [owner, addr2, ...addrs] = await ethers.getSigners();
 
     const offsetHelperFactory = (await ethers.getContractFactory(
       "OffsetHelper",
-      addr2
+      owner
     )) as OffsetHelper__factory;
 
     const offsetHelper = await offsetHelperFactory.deploy(
@@ -59,20 +57,23 @@ describe("OffsetHelper", function () {
       Object.values(networkPaths)
     );
 
+    console.log(offsetHelper.address);
+    console.log("owner", await offsetHelper.owner());
+
     const bct = IToucanPoolToken__factory.connect(
       networkPoolAddress.BCT,
-      addr2
+      owner
     );
     const nct = IToucanPoolToken__factory.connect(
       networkPoolAddress.NCT,
-      addr2
+      owner
     );
 
-    const usdc = IERC20__factory.connect(networkAddresses.USDC, addr2);
-    const weth = IERC20__factory.connect(networkAddresses.WETH, addr2);
+    const usdc = IERC20__factory.connect(networkAddresses.USDC, owner);
+    const weth = IERC20__factory.connect(networkAddresses.WETH, owner);
     const testToken = IWETH__factory.connect(
       networkAddresses[swapToken],
-      addr2
+      owner
     );
 
     const tokens: Record<string, token> = {
@@ -88,7 +89,7 @@ describe("OffsetHelper", function () {
 
     const swapperFactory = (await ethers.getContractFactory(
       "Swapper",
-      addr2
+      owner
     )) as Swapper__factory;
 
     const swapper = await swapperFactory.deploy(
@@ -99,14 +100,14 @@ describe("OffsetHelper", function () {
     await Promise.all(
       addrs.map(async (addr) => {
         await addr.sendTransaction({
-          to: addr2.address,
+          to: owner.address,
           value: (await addr.getBalance()).sub(ONE_ETHER),
         });
       })
     );
 
     // Get cUSD, WMATIC, WETH, USDC fo testing
-    await IWETH__factory.connect(networkAddresses[swapToken], addr2).deposit({
+    await IWETH__factory.connect(networkAddresses[swapToken], owner).deposit({
       value: parseEther("1000"),
     });
     await swapper.swap(networkAddresses.WETH, parseEther("20.0"), {
@@ -137,20 +138,12 @@ describe("OffsetHelper", function () {
       ),
     });
 
-    // await swapper.swap(networkAddresses.WETH, parseEther("20.0"));
-
-    // await swapper.swap(networkAddresses.USDC, parseUSDC("10.0"));
-
-    // await swapper.swap(networkPoolAddress.BCT, parseEther("50.0"));
-
-    // await swapper.swap(networkPoolAddress.NCT, parseEther("50.0"));
-
     return {
       offsetHelper,
       weth,
       testToken,
       usdc,
-      addr1,
+      owner,
       addr2,
       addrs,
       tokens,
@@ -158,22 +151,25 @@ describe("OffsetHelper", function () {
   }
 
   describe.only("#isERC20AddressEligible()", function () {
-    it("should be true when weth  to pay for retirement", async function () {
+    it("should be true when weth is being used to pay for retirement", async function () {
       const { offsetHelper, weth } = await loadFixture(
         deployOffsetHelperFixture
       );
-      expect(await offsetHelper.isERC20AddressEligible(weth.address)).to.equal(
-        true
-      );
+
+      const path = await offsetHelper.isERC20AddressEligible(weth.address);
+      expect(path.length).to.equal(networkPaths.WETH?.length);
     });
     it("should be false when inputing a non valid ERC20 token you want to use to pay for retirement", async function () {
       const { offsetHelper } = await loadFixture(deployOffsetHelperFixture);
-      expect(
-        await offsetHelper.isERC20AddressEligible(
-          "0x8A4d7458dDe3023A3B24225D62087701A88b09DD"
-        )
-      ).to.equal(false);
+
+      const path = await offsetHelper.isERC20AddressEligible(
+        "0x8A4d7458dDe3023A3B24225D62087701A88b09DD"
+      );
+      expect(path.length).to.equal(0);
     });
+  });
+
+  describe("#isPoolAddressEligible()", function () {
     it(`should be true  when inputing BCT`, async function () {
       const { offsetHelper } = await loadFixture(deployOffsetHelperFixture);
 
@@ -205,7 +201,7 @@ describe("OffsetHelper", function () {
       fromAmount: BigNumber,
       poolToken: IToucanPoolToken
     ) {
-      const { offsetHelper, addr2 } = await loadFixture(
+      const { offsetHelper, owner } = await loadFixture(
         deployOffsetHelperFixture
       );
 
@@ -229,7 +225,7 @@ describe("OffsetHelper", function () {
       )
         .to.emit(offsetHelper, "Redeemed")
         .withArgs(
-          addr2.address,
+          owner.address,
           poolToken.address,
           anyValue,
           (amounts: BigNumber[]) => {
@@ -238,7 +234,7 @@ describe("OffsetHelper", function () {
         )
         .and.to.changeTokenBalance(
           fromToken,
-          addr2.address,
+          owner.address,
           fromAmount.mul(-1)
         );
 
@@ -280,7 +276,7 @@ describe("OffsetHelper", function () {
         fromAmount: BigNumber,
         poolToken: IToucanPoolToken
       ) {
-        const { offsetHelper, addr2 } = await loadFixture(
+        const { offsetHelper, owner } = await loadFixture(
           deployOffsetHelperFixture
         );
 
@@ -299,14 +295,14 @@ describe("OffsetHelper", function () {
         )
           .to.emit(offsetHelper, "Redeemed")
           .withArgs(
-            addr2.address,
+            owner.address,
             poolToken.address,
             anyValue,
             (amounts: BigNumber[]) => {
               return expOffset === sumBN(amounts);
             }
           )
-          .and.to.changeEtherBalance(addr2.address, fromAmount.mul(-1));
+          .and.to.changeEtherBalance(owner.address, fromAmount.mul(-1));
 
         const supplyAfter = await poolToken.totalSupply();
         expect(supplyBefore.sub(supplyAfter)).to.equal(expOffset);
@@ -326,14 +322,14 @@ describe("OffsetHelper", function () {
     for (const name of TOKEN_POOLS) {
       it(`should retire 1.0 TCO2 using a Token swap and ${name.toUpperCase()} redemption`, async function () {
         if (network === "polygon") {
-          const { offsetHelper, addr2, tokens } = await loadFixture(
+          const { offsetHelper, owner, tokens } = await loadFixture(
             deployOffsetHelperFixture
           );
           // extracting the the pool token for this loop
           const poolToken = tokens[name];
 
           // first we set the initial chain state
-          const testTokenBalanceBefore = await addr2.getBalance();
+          const testTokenBalanceBefore = await owner.getBalance();
           const poolTokenSupplyBefore = await poolToken.token().totalSupply();
 
           // then we calculate the cost in Token of retiring 1.0 TCO2
@@ -357,7 +353,7 @@ describe("OffsetHelper", function () {
           const txFees = tx.gasUsed.mul(tx.effectiveGasPrice);
 
           // and we set the chain state after the transaction
-          const testTokenBalanceAfter = await addr2.getBalance();
+          const testTokenBalanceAfter = await owner.getBalance();
           const poolTokenSupplyAfter = await poolToken.token().totalSupply();
 
           // lastly we compare chain states
@@ -375,7 +371,7 @@ describe("OffsetHelper", function () {
       });
 
       it(`should retire 1.0 TCO2 using a ${name.toUpperCase()} deposit and ${name.toUpperCase()} redemption`, async function () {
-        const { offsetHelper, addr2, tokens } = await loadFixture(
+        const { offsetHelper, owner, tokens } = await loadFixture(
           deployOffsetHelperFixture
         );
         // extracting the the pool token for this loop
@@ -384,7 +380,7 @@ describe("OffsetHelper", function () {
         // first we set the initial chain state
         const poolTokenBalanceBefore = await poolToken
           .token()
-          .balanceOf(addr2.address);
+          .balanceOf(owner.address);
         const poolTokenSupplyBefore = await poolToken.token().totalSupply();
 
         // then we use the autoOffset function to retire 1.0 TCO2 from NCT/BCT
@@ -400,7 +396,7 @@ describe("OffsetHelper", function () {
         // then we set the chain state after the transaction
         const poolTokenBalanceAfter = await poolToken
           .token()
-          .balanceOf(addr2.address);
+          .balanceOf(owner.address);
         const poolTokenSupplyAfter = await poolToken.token().totalSupply();
 
         // and we compare chain states
@@ -415,7 +411,7 @@ describe("OffsetHelper", function () {
       });
 
       it(`should retire 1.0 TCO2 using a ${name.toUpperCase()} deposit and ${name.toUpperCase()} redemption`, async function () {
-        const { offsetHelper, addr2, tokens } = await loadFixture(
+        const { offsetHelper, owner, tokens } = await loadFixture(
           deployOffsetHelperFixture
         );
         // extracting the the pool token for this loop
@@ -424,7 +420,7 @@ describe("OffsetHelper", function () {
         // first we set the initial chain state
         const poolTokenBalanceBefore = await poolToken
           .token()
-          .balanceOf(addr2.address);
+          .balanceOf(owner.address);
         const poolTokenSupplyBefore = await poolToken.token().totalSupply();
 
         // then we use the autoOffset function to retire 1.0 TCO2 from NCT/BCT
@@ -440,7 +436,7 @@ describe("OffsetHelper", function () {
         // then we set the chain state after the transaction
         const poolTokenBalanceAfter = await poolToken
           .token()
-          .balanceOf(addr2.address);
+          .balanceOf(owner.address);
         const poolTokenSupplyAfter = await poolToken.token().totalSupply();
 
         // and we compare chain states
@@ -455,14 +451,14 @@ describe("OffsetHelper", function () {
       });
 
       it(`should retire 1.0 TCO2 using a USDC swap and ${name.toUpperCase()} redemption`, async function () {
-        const { offsetHelper, addr2, usdc, tokens } = await loadFixture(
+        const { offsetHelper, owner, usdc, tokens } = await loadFixture(
           deployOffsetHelperFixture
         );
         // extracting the the pool token for this loop
         const poolToken = tokens[name];
 
         // first we set the initial chain state
-        const usdcBalanceBefore = await usdc.balanceOf(addr2.address);
+        const usdcBalanceBefore = await usdc.balanceOf(owner.address);
         const poolTokenSupplyBefore = await poolToken.token().totalSupply();
 
         // then we calculate the cost in USDC of retiring 1.0 TCO2
@@ -483,7 +479,7 @@ describe("OffsetHelper", function () {
         );
 
         // then we set the chain state after the transaction
-        const usdcBalanceAfter = await usdc.balanceOf(addr2.address);
+        const usdcBalanceAfter = await usdc.balanceOf(owner.address);
         const poolTokenSupplyAfter = await poolToken.token().totalSupply();
 
         // and we compare chain states
@@ -498,14 +494,14 @@ describe("OffsetHelper", function () {
       });
 
       it(`should retire 1.0 TCO2 using a WMATIC swap and ${name.toUpperCase()} redemption`, async function () {
-        const { offsetHelper, addr2, testToken, tokens } = await loadFixture(
+        const { offsetHelper, owner, testToken, tokens } = await loadFixture(
           deployOffsetHelperFixture
         );
         // extracting the the pool token for this loop
         const poolToken = tokens[name];
 
         // then we set the initial chain state
-        const testTokenBalanceBefore = await testToken.balanceOf(addr2.address);
+        const testTokenBalanceBefore = await testToken.balanceOf(owner.address);
         const poolTokenSupplyBefore = await poolToken.token().totalSupply();
 
         // and we calculate the cost in WMATIC of retiring 1.0 TCO2
@@ -528,7 +524,7 @@ describe("OffsetHelper", function () {
         );
 
         // then we set the chain state after the transaction
-        const testTokenBalanceAfter = await testToken.balanceOf(addr2.address);
+        const testTokenBalanceAfter = await testToken.balanceOf(owner.address);
         const poolTokenSupplyAfter = await poolToken.token().totalSupply();
 
         // and we compare chain states
@@ -543,14 +539,14 @@ describe("OffsetHelper", function () {
       });
 
       it(`should retire 1.0 TCO2 using a WETH swap and ${name.toUpperCase()} redemption`, async function () {
-        const { offsetHelper, addr2, weth, tokens } = await loadFixture(
+        const { offsetHelper, owner, weth, tokens } = await loadFixture(
           deployOffsetHelperFixture
         );
         // extracting the the pool token for this loop
         const poolToken = tokens[name];
 
         // first we set the initial chain state
-        const wethBalanceBefore = await weth.balanceOf(addr2.address);
+        const wethBalanceBefore = await weth.balanceOf(owner.address);
         const poolTokenSupplyBefore = await poolToken.token().totalSupply();
 
         // then we calculate the cost in WETH of retiring 1.0 TCO2
@@ -571,7 +567,7 @@ describe("OffsetHelper", function () {
         );
 
         // then we set the chain state after the transaction
-        const wethBalanceAfter = await weth.balanceOf(addr2.address);
+        const wethBalanceAfter = await weth.balanceOf(owner.address);
         const poolTokenSupplyAfter = await poolToken.token().totalSupply();
 
         // and we compare chain states
@@ -601,7 +597,7 @@ describe("OffsetHelper", function () {
       });
 
       it(`should redeem ${name.toUpperCase()} from deposit`, async function () {
-        const { offsetHelper, addr2, tokens } = await loadFixture(
+        const { offsetHelper, owner, tokens } = await loadFixture(
           deployOffsetHelperFixture
         );
         // extracting the the pool token for this loop
@@ -616,7 +612,7 @@ describe("OffsetHelper", function () {
         states.push({
           userPoolTokenBalance: await poolToken
             .token()
-            .balanceOf(addr2.address),
+            .balanceOf(owner.address),
           contractPoolTokenBalance: await poolToken
             .token()
             .balanceOf(offsetHelper.address),
@@ -638,7 +634,7 @@ describe("OffsetHelper", function () {
         states.push({
           userPoolTokenBalance: await poolToken
             .token()
-            .balanceOf(addr2.address),
+            .balanceOf(owner.address),
           contractPoolTokenBalance: await poolToken
             .token()
             .balanceOf(offsetHelper.address),
@@ -675,7 +671,7 @@ describe("OffsetHelper", function () {
         states.push({
           userPoolTokenBalance: await poolToken
             .token()
-            .balanceOf(addr2.address),
+            .balanceOf(owner.address),
           contractPoolTokenBalance: await poolToken
             .token()
             .balanceOf(offsetHelper.address),
@@ -716,7 +712,7 @@ describe("OffsetHelper", function () {
 
     for (const name of TOKEN_POOLS) {
       it(`should retire using an ${name.toUpperCase()} deposit`, async function () {
-        const { offsetHelper, addr2, tokens } = await loadFixture(
+        const { offsetHelper, owner, tokens } = await loadFixture(
           deployOffsetHelperFixture
         );
         // extracting the the pool token for this loop
@@ -731,7 +727,7 @@ describe("OffsetHelper", function () {
         state.push({
           userPoolTokenBalance: await poolToken
             .token()
-            .balanceOf(addr2.address),
+            .balanceOf(owner.address),
           contractPoolTokenBalance: await poolToken
             .token()
             .balanceOf(offsetHelper.address),
@@ -753,7 +749,7 @@ describe("OffsetHelper", function () {
         state.push({
           userPoolTokenBalance: await poolToken
             .token()
-            .balanceOf(addr2.address),
+            .balanceOf(owner.address),
           contractPoolTokenBalance: await poolToken
             .token()
             .balanceOf(offsetHelper.address),
@@ -790,7 +786,7 @@ describe("OffsetHelper", function () {
         state.push({
           userPoolTokenBalance: await poolToken
             .token()
-            .balanceOf(addr2.address),
+            .balanceOf(owner.address),
           contractPoolTokenBalance: await poolToken
             .token()
             .balanceOf(offsetHelper.address),
@@ -827,7 +823,7 @@ describe("OffsetHelper", function () {
         state.push({
           userPoolTokenBalance: await poolToken
             .token()
-            .balanceOf(addr2.address),
+            .balanceOf(owner.address),
           contractPoolTokenBalance: await poolToken
             .token()
             .balanceOf(offsetHelper.address),
@@ -873,14 +869,14 @@ describe("OffsetHelper", function () {
       });
 
       it(`should deposit and withdraw 1.0 ${name.toUpperCase()}`, async function () {
-        const { offsetHelper, addr2, tokens } = await loadFixture(
+        const { offsetHelper, owner, tokens } = await loadFixture(
           deployOffsetHelperFixture
         );
         const poolToken = tokens[name];
 
         const preDepositPoolTokenBalance = await poolToken
           .token()
-          .balanceOf(addr2.address);
+          .balanceOf(owner.address);
 
         await (
           await poolToken.token().approve(offsetHelper.address, ONE_ETHER)
@@ -902,7 +898,7 @@ describe("OffsetHelper", function () {
 
         const postWithdrawPoolTokenBalance = await poolToken
           .token()
-          .balanceOf(addr2.address);
+          .balanceOf(owner.address);
 
         expect(formatEther(postWithdrawPoolTokenBalance)).to.be.eql(
           formatEther(preDepositPoolTokenBalance)
@@ -935,7 +931,7 @@ describe("OffsetHelper", function () {
       });
 
       it(`should deposit 1.0 ${name.toUpperCase()}`, async function () {
-        const { offsetHelper, addr2, tokens } = await loadFixture(
+        const { offsetHelper, owner, tokens } = await loadFixture(
           deployOffsetHelperFixture
         );
         const poolToken = tokens[name];
@@ -954,7 +950,7 @@ describe("OffsetHelper", function () {
         expect(
           formatEther(
             await offsetHelper.balances(
-              addr2.address,
+              owner.address,
               networkPoolAddress[poolToken.name]
             )
           )
@@ -1043,17 +1039,18 @@ describe("OffsetHelper", function () {
         ).wait();
 
         await expect(
-          offsetHelper.connect(addrs[0]).swapExactOutToken(
-            networkAddresses.WETH,
-            networkPoolAddress[poolToken.name],
-
-            ONE_ETHER
-          )
+          offsetHelper
+            .connect(addrs[0])
+            .swapExactOutToken(
+              networkAddresses.WETH,
+              networkPoolAddress[poolToken.name],
+              ONE_ETHER
+            )
         ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
       });
 
       it(`should swap WETH for 1.0 ${name.toUpperCase()}`, async function () {
-        const { offsetHelper, weth, addr2, tokens } = await loadFixture(
+        const { offsetHelper, weth, owner, tokens } = await loadFixture(
           deployOffsetHelperFixture
         );
         const poolToken = tokens[name];
@@ -1088,12 +1085,91 @@ describe("OffsetHelper", function () {
         expect(
           formatEther(
             await offsetHelper.balances(
-              addr2.address,
+              owner.address,
               networkPoolAddress[poolToken.name]
             )
           )
         ).to.be.eql("1.0");
       });
     }
+  });
+
+  describe.skip("owner wants to add a path", function () {
+    it(`the path should be added to eligibleSwapPaths`, async function () {
+      const { offsetHelper, owner } = await loadFixture(
+        deployOffsetHelperFixture
+      );
+
+      await offsetHelper.addPath(
+        "USDT",
+        [
+          "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+          "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+        ],
+        {
+          from: owner.address,
+        }
+      );
+      expect(
+        offsetHelper.isERC20AddressEligible(
+          "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
+        )
+      ).to.equal([
+        "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+        "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+      ]);
+    });
+  });
+  describe.skip("owner wants to remove a path", function () {
+    it(`the path should be removed from eligibleSwapPaths`, async function () {
+      const { offsetHelper, owner } = await loadFixture(
+        deployOffsetHelperFixture
+      );
+
+      await offsetHelper.removePath("USDT", {
+        from: owner.address,
+      });
+      expect(
+        offsetHelper.isERC20AddressEligible(
+          "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
+        )
+      ).to.equal("");
+    });
+  });
+
+  describe.skip("owner wants to add a pool Token", function () {
+    it(`the pool Token should be added to poolAddresses`, async function () {
+      const { offsetHelper, owner } = await loadFixture(
+        deployOffsetHelperFixture
+      );
+
+      const origialPoolAddresses = offsetHelper.poolAddresses;
+
+      await offsetHelper.addPoolToken(
+        "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+        {
+          from: owner.address,
+        }
+      );
+      expect(offsetHelper.poolAddresses.length).to.equal(
+        origialPoolAddresses.length + 1
+      );
+    });
+  });
+  describe.skip("owner wants to remove pool Token", function () {
+    it(`the path should be removed from poolAddresses`, async function () {
+      const { offsetHelper, owner } = await loadFixture(
+        deployOffsetHelperFixture
+      );
+
+      const origialPoolAddresses = offsetHelper.poolAddresses;
+
+      await offsetHelper.removePoolToken(poolAddresses.polygon.NCT, {
+        from: owner.address,
+      });
+      expect(offsetHelper.poolAddresses.length).to.equal(
+        origialPoolAddresses.length - 1
+      );
+    });
   });
 });
