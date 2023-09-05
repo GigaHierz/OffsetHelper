@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
 
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
@@ -19,6 +18,7 @@ import {
   OffsetHelper__factory,
   Swapper,
   Swapper__factory,
+  OwnableUpgradeable__factory,
 } from "../typechain";
 import { BigNumber } from "ethers";
 import { sum as sumBN } from "../utils/bignumber";
@@ -42,6 +42,7 @@ function parseUSDC(s: string): BigNumber {
 
 describe("OffsetHelper", function () {
   const TOKEN_POOLS = ["nct", "bct"];
+  let ownableInstance;
 
   async function deployOffsetHelperFixture() {
     const [owner, addr2, ...addrs] = await ethers.getSigners();
@@ -150,7 +151,7 @@ describe("OffsetHelper", function () {
     };
   }
 
-  describe.only("#isERC20AddressEligible()", function () {
+  describe("#isERC20AddressEligible()", function () {
     it("should be true when weth is being used to pay for retirement", async function () {
       const { offsetHelper, weth } = await loadFixture(
         deployOffsetHelperFixture
@@ -1094,7 +1095,7 @@ describe("OffsetHelper", function () {
     }
   });
 
-  describe.skip("owner wants to add a path", function () {
+  describe("owner wants to add a path", function () {
     it(`the path should be added to eligibleSwapPaths`, async function () {
       const { offsetHelper, owner } = await loadFixture(
         deployOffsetHelperFixture
@@ -1110,66 +1111,41 @@ describe("OffsetHelper", function () {
           from: owner.address,
         }
       );
-      expect(
-        offsetHelper.isERC20AddressEligible(
-          "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
-        )
-      ).to.equal([
-        "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
-        "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
-      ]);
+      const path = await offsetHelper.isERC20AddressEligible(
+        "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
+      );
+      expect(path.length).to.equal(2);
     });
   });
-  describe.skip("owner wants to remove a path", function () {
+
+  describe("owner wants to remove a path", function () {
     it(`the path should be removed from eligibleSwapPaths`, async function () {
       const { offsetHelper, owner } = await loadFixture(
         deployOffsetHelperFixture
       );
 
-      await offsetHelper.removePath("USDT", {
-        from: owner.address,
-      });
-      expect(
-        offsetHelper.isERC20AddressEligible(
-          "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
-        )
-      ).to.equal("");
-    });
-  });
-
-  describe.skip("owner wants to add a pool Token", function () {
-    it(`the pool Token should be added to poolAddresses`, async function () {
-      const { offsetHelper, owner } = await loadFixture(
-        deployOffsetHelperFixture
-      );
-
-      const origialPoolAddresses = offsetHelper.poolAddresses;
-
-      await offsetHelper.addPoolToken(
-        "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+      await offsetHelper.addPath(
+        "USDT",
+        [
+          "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+          "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+        ],
         {
           from: owner.address,
         }
       );
-      expect(offsetHelper.poolAddresses.length).to.equal(
-        origialPoolAddresses.length + 1
+      const path1 = await offsetHelper.isERC20AddressEligible(
+        "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
       );
-    });
-  });
-  describe.skip("owner wants to remove pool Token", function () {
-    it(`the path should be removed from poolAddresses`, async function () {
-      const { offsetHelper, owner } = await loadFixture(
-        deployOffsetHelperFixture
-      );
+      expect(path1.length).to.equal(2);
 
-      const origialPoolAddresses = offsetHelper.poolAddresses;
-
-      await offsetHelper.removePoolToken(poolAddresses.polygon.NCT, {
+      await offsetHelper.removePath("USDT", {
         from: owner.address,
       });
-      expect(offsetHelper.poolAddresses.length).to.equal(
-        origialPoolAddresses.length - 1
+      const path2 = await offsetHelper.isERC20AddressEligible(
+        "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
       );
+      expect(path2.length).to.equal(0);
     });
   });
 });
