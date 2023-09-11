@@ -3,7 +3,7 @@
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { formatEther, parseEther, parseUnits } from "ethers/lib/utils";
 import addresses from "../utils/addresses";
 import paths, { poolAddresses } from "../utils/paths";
