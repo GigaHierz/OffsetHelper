@@ -52,7 +52,7 @@ yarn hardhat deploy --network <network>
 yarn hardhat verify:offsetHelper --network <network> --address <address where Offset Helper was deployed>
 ```
 
-## Deplyoing the OffsetHelper on a new Chain
+## Deploying the OffsetHelper on a new Chain
 
 - add all addresses to the `./utils/addresses.ts`
 - add DEX Router address for the deployment to the `OffsetHelperStorage.sol` contract.

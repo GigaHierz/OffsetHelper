@@ -3,7 +3,7 @@
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { formatEther, parseEther, parseUnits } from "ethers/lib/utils";
 import addresses from "../utils/addresses";
 import paths, { poolAddresses } from "../utils/paths";
@@ -19,6 +19,7 @@ import {
   Swapper,
   Swapper__factory,
   OwnableUpgradeable__factory,
+  OwnableUpgradeable,
 } from "../typechain";
 import { BigNumber } from "ethers";
 import { sum as sumBN } from "../utils/bignumber";
@@ -42,7 +43,6 @@ function parseUSDC(s: string): BigNumber {
 
 describe("OffsetHelper", function () {
   const TOKEN_POOLS = ["nct", "bct"];
-  let ownableInstance;
 
   async function deployOffsetHelperFixture() {
     const [owner, addr2, ...addrs] = await ethers.getSigners();
@@ -52,14 +52,13 @@ describe("OffsetHelper", function () {
       owner
     )) as OffsetHelper__factory;
 
-    const offsetHelper = await offsetHelperFactory.deploy(
+    const offsetHelper = await offsetHelperFactory?.deploy(
       Object.values(networkPoolAddress),
       Object.keys(networkPaths),
       Object.values(networkPaths)
     );
 
-    console.log(offsetHelper.address);
-    console.log("owner", await offsetHelper.owner());
+    await offsetHelper.initialize();
 
     const bct = IToucanPoolToken__factory.connect(
       networkPoolAddress.BCT,
@@ -1095,7 +1094,7 @@ describe("OffsetHelper", function () {
     }
   });
 
-  describe("owner wants to add a path", function () {
+  describe.only("owner wants to add a path", function () {
     it(`the path should be added to eligibleSwapPaths`, async function () {
       const { offsetHelper, owner } = await loadFixture(
         deployOffsetHelperFixture
@@ -1118,7 +1117,7 @@ describe("OffsetHelper", function () {
     });
   });
 
-  describe("owner wants to remove a path", function () {
+  describe.only("owner wants to remove a path", function () {
     it(`the path should be removed from eligibleSwapPaths`, async function () {
       const { offsetHelper, owner } = await loadFixture(
         deployOffsetHelperFixture

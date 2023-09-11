@@ -58,37 +58,6 @@ contract OffsetHelper is OffsetHelperStorage {
     using SafeERC20 for IERC20;
 
     /**
-     * @notice Contract constructor. Should specify arrays of ERC20 symbols and
-     * addresses that can used by the contract.
-     *
-     * @dev See `isEligible()` for a list of tokens that can be used in the
-     * contract. These can be modified after deployment by the contract owner
-     * using `setEligibleTokenAddress()` and `deleteEligibleTokenAddress()`.
-     *
-     * @param _poolAddresses A list of pool token addresses.
-     * @param _tokenSymbolsForPaths An array of symbols of the token the user want to retire carbon credits for
-     * @param _paths An array of arrays of addresses to describe the path needed to swap form the baseToken to the pool Token
-     * to the provided token symbols.
-     */
-    constructor(
-        address[] memory _poolAddresses,
-        string[] memory _tokenSymbolsForPaths,
-        address[][] memory _paths
-    ) {
-        poolAddresses = _poolAddresses;
-        tokenSymbolsForPaths = _tokenSymbolsForPaths;
-        paths = _paths;
-
-        uint256 i = 0;
-        uint256 eligibleSwapPathsBySymbolLen = _tokenSymbolsForPaths.length;
-        while (i < eligibleSwapPathsBySymbolLen) {
-            eligibleSwapPaths[_paths[i][0]] = _paths[i];
-            eligibleSwapPathsBySymbol[_tokenSymbolsForPaths[i]] = _paths[i];
-            i += 1;
-        }
-    }
-
-    /**
      * @notice Emitted upon successful redemption of TCO2 tokens from a Toucan
      * pool token e.g., NCT.
      *
@@ -115,6 +84,47 @@ contract OffsetHelper is OffsetHelperStorage {
         require(isSwappable(_token), "Path doesn't yet exists.");
 
         _;
+    }
+
+    /**
+     * @notice Contract constructor. Should specify arrays of ERC20 symbols and
+     * addresses that can used by the contract.
+     *
+     * @dev See `isEligible()` for a list of tokens that can be used in the
+     * contract. These can be modified after deployment by the contract owner
+     * using `setEligibleTokenAddress()` and `deleteEligibleTokenAddress()`.
+     *
+     * @param _poolAddresses A list of pool token addresses.
+     * @param _tokenSymbolsForPaths An array of symbols of the token the user want to retire carbon credits for
+     * @param _paths An array of arrays of addresses to describe the path needed to swap form the baseToken to the pool Token
+     * to the provided token symbols.
+     */
+    constructor(
+        address[] memory _poolAddresses,
+        string[] memory _tokenSymbolsForPaths,
+        address[][] memory _paths
+    ) {
+        // _disableInitializers();
+
+        poolAddresses = _poolAddresses;
+        tokenSymbolsForPaths = _tokenSymbolsForPaths;
+        paths = _paths;
+
+        uint256 i = 0;
+        uint256 eligibleSwapPathsBySymbolLen = _tokenSymbolsForPaths.length;
+        while (i < eligibleSwapPathsBySymbolLen) {
+            eligibleSwapPaths[_paths[i][0]] = _paths[i];
+            eligibleSwapPathsBySymbol[_tokenSymbolsForPaths[i]] = _paths[i];
+            i += 1;
+        }
+    }
+
+    // ----------------------------------------
+    //      Upgradable related functions
+    // ----------------------------------------
+
+    function initialize() external virtual initializer {
+        __Ownable_init_unchained();
     }
 
     /**
