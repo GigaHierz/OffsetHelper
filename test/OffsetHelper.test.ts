@@ -3,23 +3,18 @@
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
-import { ethers, upgrades } from "hardhat";
+import { ethers } from "hardhat";
 import { formatEther, parseEther, parseUnits } from "ethers/lib/utils";
 import addresses from "../utils/addresses";
 import paths, { poolAddresses } from "../utils/paths";
 import {
   IERC20,
   IERC20__factory,
-  IWETH,
   IWETH__factory,
   IToucanPoolToken,
   IToucanPoolToken__factory,
-  OffsetHelper,
   OffsetHelper__factory,
-  Swapper,
   Swapper__factory,
-  OwnableUpgradeable__factory,
-  OwnableUpgradeable,
 } from "../typechain";
 import { BigNumber } from "ethers";
 import { sum as sumBN } from "../utils/bignumber";
@@ -1094,7 +1089,7 @@ describe("OffsetHelper", function () {
     }
   });
 
-  describe.only("owner wants to add a path", function () {
+  describe("owner wants to add a path", function () {
     it(`the path should be added to eligibleSwapPaths`, async function () {
       const { offsetHelper, owner } = await loadFixture(
         deployOffsetHelperFixture
@@ -1117,7 +1112,7 @@ describe("OffsetHelper", function () {
     });
   });
 
-  describe.only("owner wants to remove a path", function () {
+  describe("owner wants to remove a path", function () {
     it(`the path should be removed from eligibleSwapPaths`, async function () {
       const { offsetHelper, owner } = await loadFixture(
         deployOffsetHelperFixture
