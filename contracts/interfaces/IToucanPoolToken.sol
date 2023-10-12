@@ -12,24 +12,25 @@ interface IToucanPoolToken is IERC20Upgradeable {
 
     function checkEligible(address erc20Addr) external view returns (bool);
 
-    function checkAttributeMatching(address erc20Addr)
-        external
-        view
-        returns (bool);
+    function checkAttributeMatching(
+        address erc20Addr
+    ) external view returns (bool);
 
     function calculateRedeemFees(
         address[] memory tco2s,
         uint256[] memory amounts
     ) external view returns (uint256);
 
-    function redeemMany(address[] memory tco2s, uint256[] memory amounts)
-        external;
+    function redeemMany(
+        address[] memory tco2s,
+        uint256[] memory amounts
+    ) external returns (uint256[] memory redeemedAmounts);
 
     function redeemAuto(uint256 amount) external;
 
-    function redeemAuto2(uint256 amount)
-        external
-        returns (address[] memory tco2s, uint256[] memory amounts);
+    function redeemAuto2(
+        uint256 amount
+    ) external returns (address[] memory tco2s, uint256[] memory amounts);
 
     function getRemaining() external view returns (uint256);
 

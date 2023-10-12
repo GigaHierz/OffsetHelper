@@ -335,6 +335,116 @@ contract OffsetHelper is OffsetHelperStorage {
     }
 
     /**
+     * @notice Retire carbon credits using the lowest quality (oldest) TCO2
+     * tokens available from the specified Toucan token pool by sending ERC20
+     * tokens (cUSD, USDC, WETH, WMATIC). All provided token is consumed for
+     * offsetting.
+     *
+     * This function:
+     * 1. Swaps the ERC20 token sent to the contract for the specified pool token.
+     * 2. Redeems the pool token for the poorest quality TCO2 tokens available.
+     * 3. Retires the TCO2 tokens.
+     *
+     * Note: The client must approve the ERC20 token that is sent to the contract.
+     *
+     * @dev When automatically redeeming pool tokens for the lowest quality
+     * TCO2s there are no fees and you receive exactly 1 TCO2 token for 1 pool
+     * token.
+     * @param _fromToken The address of the ERC20 token that the user sends
+     * (e.g., cUSD, cUSD, USDC, WETH, WMATIC)
+     * @param _poolToken The address of the Toucan pool token that the
+     * user wants to use,  e.g., NCT or BCT
+     * @param _amountToSwap The amount of ERC20 token to swap into Toucan pool
+     * token. Full amount will be used for offsetting.
+
+     *
+     * @return tco2s An array of the TCO2 addresses that were redeemed
+     * @return amounts An array of the amounts of each TCO2 that were redeemed
+     */
+
+    function retireSpecificProject(
+        address _fromToken,
+        address _poolToken,
+        address _tco2,
+        uint256 _amountToSwap
+    ) public returns (address[] memory tco2s, uint256[] memory amounts) {
+        // swap input token for BCT / NCT
+        uint256 amountToOffset = swapExactInToken(
+            _fromToken,
+            _poolToken,
+            _amountToSwap
+        );
+
+        // redeem BCT / NCT for a sepcific TCO2
+        amounts = redeemProject(_poolToken, _tco2, amountToOffset);
+
+        // retire the TCO2s to achieve offset
+        retireProject(tco2s, amounts);
+    }
+
+    /**
+     * @notice Redeems the specified amount of NCT / BCT for TCO2.
+     * @dev Needs to be approved on the client side
+     * @param _fromToken Could be the address of NCT or BCT
+     * @param _amount Amount to redeem
+     * @return amounts An array of the amounts of each TCO2 that were redeemed
+     */
+    function redeemProject(
+        address _fromToken,
+        address _tco2,
+        uint256 _amount
+    ) public returns (uint256[] memory amounts) {
+        require(
+            IERC20(_fromToken).balanceOf(address(this)) >= _amount,
+            "Insufficient NCT/BCT balance"
+        );
+        // instantiate pool token (NCT or BCT)
+        IToucanPoolToken PoolTokenImplementation = IToucanPoolToken(_fromToken);
+
+        address[] memory tco2s;
+        tco2s[0] = _tco2;
+        amounts[0] = _amount;
+
+        //  redeem pool token for TCO2 with that address; will transfer the TCO2 to this contract
+        amounts = PoolTokenImplementation.redeemMany(tco2s, amounts);
+
+        emit Redeemed(msg.sender, _fromToken, tco2s, amounts);
+    }
+
+    /**
+     * @notice Retire the specified TCO2 tokens.
+     * @param _tco2s The addresses of the TCO2s to retire
+     * @param _amounts The amounts to retire from each of the corresponding
+     * TCO2 addresses
+     */
+    function retireProject(
+        address[] memory _tco2s,
+        uint256[] memory _amounts
+    ) public {
+        uint256 tco2sLen = _tco2s.length;
+        require(tco2sLen != 0, "Array empty");
+
+        require(tco2sLen == _amounts.length, "Arrays unequal");
+
+        for (uint i = 0; i < tco2sLen; i++) {
+            if (_amounts[i] == 0) {
+                continue;
+            }
+            require(
+                IERC20(_tco2s[i]).balanceOf(address(this)) >= _amounts[i],
+                "Insufficient TCO2 balance"
+            );
+
+            // instantiate the TCO2  contract
+            IToucanCarbonOffsets TCO2Implementation = IToucanCarbonOffsets(
+                _tco2s[i]
+            );
+
+            TCO2Implementation.retire(_amounts[i]);
+        }
+    }
+
+    /**
      * @notice Redeems the specified amount of NCT / BCT for TCO2.
      * @dev Needs to be approved on the client side
      * @param _fromToken Could be the address of NCT
