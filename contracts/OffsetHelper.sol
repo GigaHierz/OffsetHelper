@@ -354,38 +354,46 @@ contract OffsetHelper is OffsetHelperStorage {
      * (e.g., cUSD, cUSD, USDC, WETH, WMATIC)
      * @param _poolToken The address of the Toucan pool token that the
      * user wants to use,  e.g., NCT or BCT
+     * @param _tco2 The TCO2 address to be retired
      * @param _amountToSwap The amount of ERC20 token to swap into Toucan pool
      * token. Full amount will be used for offsetting.
 
      *
-     * @return tco2s An array of the TCO2 addresses that were redeemed
      * @return amounts An array of the amounts of each TCO2 that were redeemed
      */
 
     function retireSpecificProject(
         address _fromToken,
         address _poolToken,
-        address _tco2,
-        uint256 _amountToSwap
-    ) public returns (address[] memory tco2s, uint256[] memory amounts) {
+        address[] memory _tco2,
+        uint256[] memory _amountToSwap
+    ) public returns (uint256[] memory amounts) {
         // swap input token for BCT / NCT
         uint256 amountToOffset = swapExactInToken(
             _fromToken,
             _poolToken,
-            _amountToSwap
+            _amountToSwap[0]
         );
 
-        // redeem BCT / NCT for a sepcific TCO2
-        amounts = redeemProject(_poolToken, _tco2, amountToOffset);
+        IToucanPoolToken PoolTokenImplementation = IToucanPoolToken(_fromToken);
 
-        // retire the TCO2s to achieve offset
-        retireProject(tco2s, amounts);
+        uint256[] memory _amounts = new uint256[](1);
+        _amounts[0] = amountToOffset;
+        // address[] memory _tco2s = new address[](1);
+        // _tco2s[0] = _tco2;
+
+        // redeem BCT / NCT for a sepcific TCO2
+        (, amounts) = PoolTokenImplementation.redeemAndRetireMany(
+            _tco2,
+            _amounts
+        );
     }
 
     /**
      * @notice Redeems the specified amount of NCT / BCT for TCO2.
      * @dev Needs to be approved on the client side
      * @param _fromToken Could be the address of NCT or BCT
+     * @param _tco2 The TCO2 address to be retired
      * @param _amount Amount to redeem
      * @return amounts An array of the amounts of each TCO2 that were redeemed
      */
@@ -401,14 +409,15 @@ contract OffsetHelper is OffsetHelperStorage {
         // instantiate pool token (NCT or BCT)
         IToucanPoolToken PoolTokenImplementation = IToucanPoolToken(_fromToken);
 
-        address[] memory tco2s;
-        tco2s[0] = _tco2;
-        amounts[0] = _amount;
+        uint256[] memory _amounts = new uint256[](1);
+        _amounts[0] = _amount;
+        address[] memory _tco2s = new address[](1);
+        _tco2s[0] = _tco2;
 
         //  redeem pool token for TCO2 with that address; will transfer the TCO2 to this contract
-        amounts = PoolTokenImplementation.redeemMany(tco2s, amounts);
+        amounts = PoolTokenImplementation.redeemMany(_tco2s, _amounts);
 
-        emit Redeemed(msg.sender, _fromToken, tco2s, amounts);
+        emit Redeemed(msg.sender, _fromToken, _tco2s, amounts);
     }
 
     /**

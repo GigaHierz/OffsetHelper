@@ -26,7 +26,19 @@ interface IToucanPoolToken is IERC20Upgradeable {
         uint256[] memory amounts
     ) external returns (uint256[] memory redeemedAmounts);
 
-    function redeemAuto(uint256 amount) external;
+    function redeemAndRetireMany(
+        address[] memory tco2s,
+        uint256[] memory amounts
+    )
+        external
+        returns (
+            uint256[] memory retirementIds,
+            uint256[] memory redeemedAmounts
+        );
+
+    function redeemAuto(
+        uint256 amount
+    ) external returns (address[] memory, uint256[] memory);
 
     function redeemAuto2(
         uint256 amount
