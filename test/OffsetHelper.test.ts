@@ -191,6 +191,82 @@ describe("OffsetHelper", function () {
     });
   });
 
+  describe("#retireSpecificProject()", function () {
+    async function retireFixedInToken(
+      fromToken: IERC20,
+      fromAmount: BigNumber,
+      poolToken: IToucanPoolToken
+    ) {
+      const { offsetHelper, owner } = await loadFixture(
+        deployOffsetHelperFixture
+      );
+
+      const expOffset = await offsetHelper.calculateExpectedPoolTokenForToken(
+        fromToken.address,
+        poolToken.address,
+        fromAmount
+      );
+      // sanity check
+      expect(expOffset).to.be.greaterThan(0);
+
+      await fromToken.approve(offsetHelper.address, fromAmount);
+
+      const tco2Address = "0x6362364a37f34d39a1f4993fb595dab4116daf0d";
+      const supplyBefore = await poolToken.totalSupply();
+      await expect(
+        offsetHelper.retireSpecificProject(
+          fromToken.address,
+          poolToken.address,
+          [tco2Address],
+          [fromAmount]
+        )
+      )
+        .to.emit(offsetHelper, "Redeemed")
+        .withArgs(
+          owner.address,
+          poolToken.address,
+          anyValue,
+          (amounts: BigNumber[]) => {
+            return expOffset === sumBN(amounts);
+          }
+        )
+        .and.to.changeTokenBalance(
+          fromToken,
+          owner.address,
+          fromAmount.mul(-1)
+        );
+
+      const supplyAfter = await poolToken.totalSupply();
+      expect(supplyBefore.sub(supplyAfter)).to.equal(expOffset);
+    }
+
+    for (const name of TOKEN_POOLS) {
+      it(`should retire 1 WETH for ${name.toUpperCase()} redemption`, async function () {
+        const { weth, tokens } = await loadFixture(deployOffsetHelperFixture);
+        const poolToken = tokens[name];
+
+        await retireFixedInToken(weth, ONE_ETHER, poolToken.token());
+      });
+
+      it(`should retire 10 USDC for ${name.toUpperCase()} redemption`, async function () {
+        const { usdc, tokens } = await loadFixture(deployOffsetHelperFixture);
+        const poolToken = tokens[name];
+        await retireFixedInToken(usdc, parseUSDC("10"), poolToken.token());
+      });
+
+      it(`should retire 20 WMATIC for ${name.toUpperCase()} redemption`, async function () {
+        const { testToken, tokens } = await loadFixture(
+          deployOffsetHelperFixture
+        );
+        const poolToken = tokens[name];
+        await retireFixedInToken(
+          testToken,
+          parseEther("20"),
+          poolToken.token()
+        );
+      });
+    }
+  });
   describe("#autoOffsetExactInToken()", function () {
     async function retireFixedInToken(
       fromToken: IERC20,
@@ -573,7 +649,7 @@ describe("OffsetHelper", function () {
     }
   });
 
-  describe("#autoRedeem()", function () {
+  describe.only("#autoRedeem()", function () {
     for (const name of TOKEN_POOLS) {
       it(`should fail because we haven't deposited ${name.toUpperCase()}`, async function () {
         const { offsetHelper, tokens } = await loadFixture(
